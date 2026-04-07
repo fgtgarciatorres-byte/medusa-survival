@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>Jellyfish: HD Boss Update</title>
+    <title>Jellyfish Survival Pro</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #000511; font-family: 'Segoe UI', sans-serif; }
+        body { margin: 0; overflow: hidden; background: #000511; font-family: 'Arial', sans-serif; }
         canvas { display: block; touch-action: none; }
         #ui {
             position: absolute; top: 20px; width: 100%;
@@ -15,17 +15,15 @@
             pointer-events: none; user-select: none;
         }
         #boss-ui {
-            position: absolute; top: 70px; left: 50%; transform: translateX(-50%);
-            color: #ff3300; font-size: 28px; font-weight: 900;
-            display: none; text-shadow: 0 0 20px red;
-            animation: blip 1s infinite;
+            position: absolute; top: 120px; left: 50%; transform: translateX(-50%);
+            color: #ff3300; font-size: 26px; font-weight: 900;
+            display: none; text-shadow: 0 0 20px red; text-align: center;
         }
-        @keyframes blip { 0% { opacity: 0.2; } 50% { opacity: 1; } 100% { opacity: 0.2; } }
     </style>
 </head>
 <body>
     <div id="ui">PUNTOS: <span id="score">0</span> | NIVEL: <span id="level">1</span></div>
-    <div id="boss-ui">¡ALERTA DE DEPREDADOR!</div>
+    <div id="boss-ui">¡JEFE TORTUGA!<br><small style="font-size: 14px">ESQUIVA SUS DISPAROS</small></div>
     <canvas id="gameCanvas"></canvas>
 
     <script>
@@ -34,220 +32,187 @@
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
-        let score = 0;
-        let level = 1;
-        let gameOver = false;
-        let shieldTime = 0;
-        let isBossMode = false;
-        let bossX = canvas.width / 2;
-        let bossDirection = 2;
-        let bossShots = 0;
-        const totalBossShots = 12; // Número de disparos a esquivar
+        // --- SISTEMA DE SONIDO ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playSound(type) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
 
-        const player = { x: canvas.width / 2, y: canvas.height * 0.8, radius: 25 };
+            if (type === 'pop') { // Burbujas
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+            } else if (type === 'star') { // Estrellas
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+            } else if (type === 'boss') { // Disparo jefe
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+            }
+        }
+
+        // --- VARIABLES DE JUEGO ---
+        let score = 0; let level = 1; let gameOver = false;
+        let shieldTime = 0; let isBossMode = false;
+        let bossX = canvas.width / 2; let bossDir = 3; let bossShotsLeft = 0;
+
+        const player = { x: canvas.width / 2, y: canvas.height * 0.8, radius: 24 };
         const objects = [];
-        const particles = Array.from({ length: 40 }, () => ({
+        const particles = Array.from({ length: 30 }, () => ({
             x: Math.random() * canvas.width, y: Math.random() * canvas.height,
-            size: Math.random() * 2.5, speed: Math.random() * 0.6 + 0.3
+            size: Math.random() * 2, speed: Math.random() * 0.5 + 0.2
         }));
 
+        window.addEventListener('touchstart', () => { if (audioCtx.state === 'suspended') audioCtx.resume(); });
         window.addEventListener('touchmove', (e) => {
-            player.x = e.touches[0].clientX;
-            player.y = e.touches[0].clientY;
+            player.x = e.touches[0].clientX; player.y = e.touches[0].clientY;
         });
 
         function spawnObject() {
             if (gameOver || isBossMode) return;
-            
             const rand = Math.random();
             let type = 'obstacle';
-            if (rand > 0.93) type = 'shield';
-            else if (rand > 0.82) type = 'star';
+            if (rand > 0.95) type = 'shield';
+            else if (rand > 0.88) type = 'star';
 
             objects.push({
-                x: Math.random() * canvas.width, y: -40,
-                size: type === 'obstacle' ? 15 + Math.random() * 25 : 22,
-                type: type,
-                speed: 3 + (level * 0.6),
-                pulse: Math.random() * 10 // Para un efecto de latido visual
+                x: Math.random() * canvas.width, y: -50,
+                size: type === 'obstacle' ? 18 + Math.random() * 20 : 22,
+                type: type, speed: 3.5 + (level * 0.4)
             });
+            setTimeout(spawnObject, Math.max(250, 1100 - (level * 70)));
+        }
 
-            setTimeout(spawnObject, Math.max(180, 1000 - (level * 60)));
+        function startBossFight() {
+            isBossMode = true;
+            bossShotsLeft = 10 + (level * 2); // Aumenta disparos según nivel
+            document.getElementById('boss-ui').style.display = 'block';
+            objects.length = 0; // Limpiar pantalla
+            spawnBossShot();
         }
 
         function spawnBossShot() {
             if (!isBossMode || gameOver) return;
-            
-            // Disparos dobles o triples según el nivel
-            const numShots = level >= 3 ? 3 : (level >= 2 ? 2 : 1);
-            for(let i=0; i < numShots; i++){
-                objects.push({
-                    x: bossX + (i-1)*20, y: 110, size: 14, type: 'bullet', speed: 6 + level * 0.5
-                });
-            }
+            objects.push({ x: bossX, y: 120, size: 15, type: 'bullet', speed: 5 + level });
+            playSound('boss');
+            bossShotsLeft--;
 
-            bossShots++;
-            if (bossShots < totalBossShots * (1 + level/5)) {
-                setTimeout(spawnBossShot, Math.max(400, 900 - level * 50));
+            if (bossShotsLeft > 0) {
+                setTimeout(spawnBossShot, 1000 - (level * 50));
             } else {
-                // Jefe derrotado
-                setTimeout(() => { 
-                    isBossMode = false; 
-                    document.getElementById('boss-ui').innerText = "¡NIVEL " + level + " COMPLETADO!";
-                    setTimeout(() => {
-                        document.getElementById('boss-ui').style.display = 'none';
-                        document.getElementById('boss-ui').innerText = "¡ALERTA DE DEPREDADOR!";
-                        level++;
-                        spawnObject(); 
-                    }, 2000);
+                setTimeout(() => {
+                    isBossMode = false;
+                    document.getElementById('boss-ui').style.display = 'none';
+                    level++;
+                    score += 10; // Bonus por jefe
+                    spawnObject();
                 }, 3000);
             }
         }
 
         function drawTurtle(x, y) {
             ctx.save();
-            const time = Date.now() * 0.002;
-            ctx.shadowBlur = 15; ctx.shadowColor = "rgba(255,0,0,0.5)";
+            const angle = Math.sin(Date.now() * 0.005) * 0.1;
+            ctx.translate(x, y);
+            ctx.rotate(angle);
 
-            // Patas traseras (aleta)
-            ctx.fillStyle = "#3e7e38";
-            ctx.beginPath();
-            ctx.ellipse(x - 30, y + 25 + Math.sin(time)*5, 15, 8, Math.PI/4, 0, Math.PI*2);
-            ctx.ellipse(x + 30, y + 25 + Math.sin(time + Math.PI)*5, 15, 8, -Math.PI/4, 0, Math.PI*2);
-            ctx.fill();
+            // Aletas
+            ctx.fillStyle = "#458b37";
+            const fA = Math.sin(Date.now() * 0.01) * 0.3;
+            ctx.beginPath(); ctx.ellipse(-50, 0, 30, 15, fA, 0, 7); ctx.fill(); // Izq
+            ctx.beginPath(); ctx.ellipse(50, 0, 30, 15, -fA, 0, 7); ctx.fill(); // Der
 
-            // Caparazón (Detallado con patrón de mosaico)
-            const shellGrad = ctx.createRadialGradient(x, y, 10, x, y, 50);
-            shellGrad.addColorStop(0, "#4a9c43"); shellGrad.addColorStop(1, "#1d4d19");
-            ctx.fillStyle = shellGrad;
-            ctx.beginPath();
-            ctx.ellipse(x, y, 55, 42, 0, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = "#123010"; ctx.lineWidth = 2.5; ctx.stroke();
-            
-            // Patrón hexagonal en el caparazón
-            ctx.strokeStyle = "rgba(10, 30, 10, 0.4)"; ctx.lineWidth = 1;
+            // Caparazón
+            const grad = ctx.createRadialGradient(0, 0, 10, 0, 0, 60);
+            grad.addColorStop(0, "#55a64b"); grad.addColorStop(1, "#1a3a16");
+            ctx.fillStyle = grad;
+            ctx.beginPath(); ctx.ellipse(0, 0, 60, 45, 0, 0, 7); ctx.fill();
+            ctx.strokeStyle = "#0d1f0b"; ctx.lineWidth = 3; ctx.stroke();
+
+            // Detalles caparazón
+            ctx.strokeStyle = "rgba(0,0,0,0.2)";
             for(let i=0; i<3; i++) {
-                ctx.beginPath(); ctx.moveTo(x-40+i*30, y-20); ctx.lineTo(x-40+i*30, y+20); ctx.stroke();
-                ctx.beginPath(); ctx.moveTo(x-50, y-15+i*15); ctx.lineTo(x+50, y-15+i*15); ctx.stroke();
+                ctx.beginPath(); ctx.arc(0, 0, 15 + i*15, 0, 7); ctx.stroke();
             }
 
-            // Cabeza y Cuello
-            const headDir = (bossDirection/Math.abs(bossDirection));
-            const headX = x + 50 * headDir;
-            const headY = y - 8;
-            ctx.fillStyle = "#5cc755";
-            ctx.beginPath(); ctx.ellipse(headX, headY, 18, 14, 0, 0, Math.PI*2); ctx.fill();
-            
-            // Ojos malvados
-            ctx.fillStyle = "white"; ctx.beginPath(); ctx.arc(headX + 5*headDir, headY - 4, 5, 0, 7); ctx.fill();
-            ctx.fillStyle = (Math.sin(Date.now()/100)>0.8) ? "black" : "red"; // Parpadeo rojo
-            ctx.beginPath(); ctx.arc(headX + 6*headDir, headY - 4, 2.5, 0, 7); ctx.fill();
-            
+            // Cabeza
+            ctx.fillStyle = "#66cc5c";
+            ctx.beginPath(); ctx.ellipse(0, -50, 20, 25, 0, 0, 7); ctx.fill();
+            ctx.fillStyle = "white"; ctx.beginPath(); ctx.arc(-7, -55, 6, 0, 7); ctx.arc(7, -55, 6, 0, 7); ctx.fill();
+            ctx.fillStyle = "red"; ctx.beginPath(); ctx.arc(-7, -56, 3, 0, 7); ctx.arc(7, -56, 3, 0, 7); ctx.fill();
             ctx.restore();
         }
 
         function drawMedusa() {
             ctx.save();
             const time = Date.now() * 0.005;
-            const isInvulnerable = shieldTime > 0;
+            const invul = shieldTime > 0;
             
-            // Brillo de escudo ( Bloom effect)
-            if (isInvulnerable) {
-                ctx.shadowBlur = 35; ctx.shadowColor = "#00ffff";
-                ctx.beginPath(); ctx.arc(player.x, player.y, player.radius + 12, 0, Math.PI * 2);
-                ctx.strokeStyle = "rgba(0, 255, 255, 0.6)"; ctx.lineWidth = 4; ctx.stroke();
-            } else {
-                ctx.shadowBlur = 10; ctx.shadowColor = "rgba(255, 100, 255, 0.3)";
-            }
+            if(invul) { ctx.shadowBlur = 20; ctx.shadowColor = "cyan"; }
 
-            // Cuerpo (Campana HD)
-            const grad = ctx.createRadialGradient(player.x, player.y - 5, 5, player.x, player.y, 30);
-            grad.addColorStop(0, isInvulnerable ? '#ffffff' : '#ffb3e6');
-            grad.addColorStop(1, isInvulnerable ? '#00e6e6' : '#7700ee');
-            
-            ctx.beginPath();
-            ctx.arc(player.x, player.y, player.radius, Math.PI, 0);
-            ctx.lineTo(player.x + player.radius, player.y + 12);
-            ctx.quadraticCurveTo(player.x, player.y + 25, player.x - player.radius, player.y + 12);
-            ctx.closePath();
-            ctx.fillStyle = grad; ctx.fill();
+            // Cuerpo
+            const g = ctx.createRadialGradient(player.x, player.y, 5, player.x, player.y, 25);
+            g.addColorStop(0, invul ? "#fff" : "#ffb3e6"); g.addColorStop(1, invul ? "#00ffff" : "#7700ee");
+            ctx.fillStyle = g;
+            ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, Math.PI, 0);
+            ctx.lineTo(player.x+player.radius, player.y+15); ctx.quadraticCurveTo(player.x, player.y+25, player.x-player.radius, player.y+15);
+            ctx.fill();
 
-            // Ojos con Pupilas (Vuelven!)
-            const eyeY = player.y - 6;
-            ctx.fillStyle = "white";
-            ctx.beginPath(); ctx.arc(player.x - 9, eyeY, 5, 0, 7); ctx.fill();
-            ctx.beginPath(); ctx.arc(player.x + 9, eyeY, 5, 0, 7); ctx.fill();
-            ctx.fillStyle = "black";
-            ctx.beginPath(); ctx.arc(player.x - 9, eyeY, 2.5, 0, 7); ctx.fill();
-            ctx.beginPath(); ctx.arc(player.x + 9, eyeY, 2.5, 0, 7); ctx.fill();
+            // Ojos
+            ctx.fillStyle = "white"; ctx.beginPath(); ctx.arc(player.x-8, player.y-5, 5, 0, 7); ctx.arc(player.x+8, player.y-5, 5, 0, 7); ctx.fill();
+            ctx.fillStyle = "black"; ctx.beginPath(); ctx.arc(player.x-8, player.y-5, 2, 0, 7); ctx.arc(player.x+8, player.y-5, 2, 0, 7); ctx.fill();
 
-            // Tentáculos ondulantes HD
-            ctx.shadowBlur = 0; // Quitar brillo para tentáculos
-            for(let i = 0; i < 6; i++) {
-                const tx = player.x - 22 + (i * 8.5);
+            // Tentáculos
+            for(let i=0; i<5; i++) {
                 ctx.beginPath();
-                ctx.moveTo(tx, player.y + 18);
-                for(let j = 0; j < 4; j++) {
-                    const offset = Math.sin(time + i*0.8 + j*0.5) * 11;
-                    ctx.quadraticCurveTo(tx + offset, player.y + 28 + (j * 12), tx, player.y + 40 + (j * 12));
+                ctx.moveTo(player.x-16+i*8, player.y+15);
+                for(let j=0; j<3; j++) {
+                    const off = Math.sin(time + i) * 8;
+                    ctx.quadraticCurveTo(player.x-16+i*8 + off, player.y+20+j*10, player.x-16+i*8, player.y+30+j*10);
                 }
-                ctx.strokeStyle = isInvulnerable ? "rgba(100, 255, 255, 0.8)" : "rgba(230, 180, 255, 0.7)";
-                ctx.lineWidth = 3.5; ctx.lineCap = "round"; ctx.stroke();
+                ctx.strokeStyle = invul ? "cyan" : "#e6b3ff"; ctx.lineWidth = 3; ctx.stroke();
             }
             ctx.restore();
         }
 
         function update() {
             if (gameOver) return;
-            
-            // Lógica del Jefe: Aparece cada 50 puntos (o al inicio del nivel 2, etc.)
-            if (score > 0 && score % 50 === 0 && !isBossMode) {
-                isBossMode = true;
-                bossShots = 0;
-                objects.length = 0; // Limpiar pantalla de obstáculos
-                document.getElementById('boss-ui').style.display = 'block';
-                setTimeout(spawnBossShot, 2500);
-            }
+            if (score > 0 && score % 50 === 0 && !isBossMode) startBossFight();
 
             if (isBossMode) {
-                // Movimiento del jefe más suave y rápido con el nivel
-                bossX += bossDirection * (1 + level/5);
-                if (bossX > canvas.width - 70 || bossX < 70) bossDirection *= -1;
+                bossX += bossDir;
+                if (bossX > canvas.width - 60 || bossX < 60) bossDir *= -1;
             }
 
             shieldTime = Math.max(0, shieldTime - 16);
-            // El nivel solo sube tras derrotar al jefe
 
             for (let i = 0; i < objects.length; i++) {
                 let o = objects[i];
                 o.y += o.speed;
-                if(o.pulse) o.pulse += 0.1;
+                const d = Math.hypot(player.x - o.x, player.y - o.y);
 
-                const dist = Math.hypot(player.x - o.x, player.y - o.y);
-                // Colisión ajustada para ser justa
-                if (dist < player.radius * 0.9 + o.size * 0.8) {
-                    if ((o.type === 'obstacle' || o.type === 'bullet') && shieldTime <= 0) {
-                        gameOver = true;
-                        // Efecto visual de muerte
-                        ctx.fillStyle = "rgba(255,0,0,0.5)"; ctx.fillRect(0,0,canvas.width,canvas.height);
-                        setTimeout(() => {
-                            alert("¡Game Over!\nPuntos: " + score + "\nNivel: " + level);
-                            location.reload();
-                        }, 10);
-                    } else if (o.type === 'star') { 
-                        score += 15; objects.splice(i, 1); i--; 
-                    } else if (o.type === 'shield') { 
-                        shieldTime = 6000; // 6 segundos de poder
-                        objects.splice(i, 1); i--; 
-                    } else if (shieldTime > 0 && (o.type === 'obstacle' || o.type === 'bullet')) { 
-                        // Destruir obstáculos si tienes escudo
-                        objects.splice(i, 1); i--; 
-                    }
+                if (d < player.radius + o.size - 5) {
+                    if (o.type === 'star') { score += 15; playSound('star'); objects.splice(i, 1); i--; }
+                    else if (o.type === 'shield') { shieldTime = 6000; playSound('star'); objects.splice(i, 1); i--; }
+                    else if (shieldTime <= 0) { 
+                        gameOver = true; alert("GAME OVER - NIVEL: " + level); location.reload(); 
+                    } else { objects.splice(i, 1); i--; }
                 }
 
-                if (o.y > canvas.height + 60) {
-                    if (o.type === 'obstacle') score++;
+                if (o.y > canvas.height + 50) {
+                    if(o.type === 'obstacle') { score++; playSound('pop'); }
                     objects.splice(i, 1); i--;
                 }
             }
@@ -256,59 +221,25 @@
         }
 
         function draw() {
-            // Fondo marino dinámico
-            const bgGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-            if (isBossMode) {
-                bgGrad.addColorStop(0, '#2a0000'); bgGrad.addColorStop(1, '#050000');
-            } else {
-                bgGrad.addColorStop(0, '#001a33'); bgGrad.addColorStop(1, '#000511');
-            }
-            ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // Partículas de fondo (Plankton HD)
+            ctx.fillStyle = isBossMode ? "#1a0505" : "#000511";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
             particles.forEach(p => {
-                p.y += p.speed; if (p.y > canvas.height) p.y = -10;
-                ctx.fillStyle = `rgba(255, 255, 255, ${isBossMode ? 0.1 : 0.3})`; 
-                ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, 7); ctx.fill();
+                p.y += p.speed; if(p.y > canvas.height) p.y = 0;
+                ctx.fillStyle = "rgba(255,255,255,0.2)"; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, 7); ctx.fill();
             });
 
-            if (isBossMode) drawTurtle(bossX, 75);
-
-            // Dibujar Obstáculos, Estrellas y Poderes HD
+            if (isBossMode) drawTurtle(bossX, 80);
             objects.forEach(o => {
-                ctx.save();
                 ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, 7);
-                
-                if (o.type === 'bullet') {
-                    ctx.fillStyle = '#ff1100'; ctx.shadowBlur = 15; ctx.shadowColor = 'red';
-                } else if (o.type === 'star') {
-                    ctx.fillStyle = '#ffff00'; ctx.shadowBlur = 20; ctx.shadowColor = 'yellow';
-                    // Dibujar forma de estrella simple
-                    ctx.beginPath();
-                    for(let i=0; i<5; i++) {
-                        ctx.lineTo(Math.cos((18+i*72)/180*Math.PI)*o.size + o.x, Math.sin((18+i*72)/180*Math.PI)*o.size + o.y);
-                        ctx.lineTo(Math.cos((54+i*72)/180*Math.PI)*(o.size/2) + o.x, Math.sin((54+i*72)/180*Math.PI)*(o.size/2) + o.y);
-                    }
-                    ctx.closePath();
-                } else if (o.type === 'shield') {
-                    ctx.fillStyle = '#00ffff'; ctx.shadowBlur = 25; ctx.shadowColor = '#00ffff';
-                    ctx.strokeStyle = "white"; ctx.lineWidth = 2; ctx.stroke();
-                } else {
-                    // Burbuja de obstáculo con transparencia y pulso
-                    const op = 0.5 + Math.sin(o.pulse || 0)*0.2;
-                    ctx.fillStyle = `rgba(255, 255, 255, ${op})`; ctx.strokeStyle = "rgba(255,255,255,0.8)";
-                    ctx.lineWidth = 1.5; ctx.stroke();
-                }
-                ctx.fill(); ctx.restore();
+                ctx.fillStyle = o.type === 'bullet' ? 'red' : (o.type === 'star' ? 'yellow' : (o.type === 'shield' ? 'cyan' : 'white'));
+                if(o.type !== 'obstacle') { ctx.shadowBlur = 15; ctx.shadowColor = ctx.fillStyle; }
+                ctx.fill(); ctx.shadowBlur = 0;
             });
 
-            drawMedusa();
-            update();
-            requestAnimationFrame(draw);
+            drawMedusa(); update(); requestAnimationFrame(draw);
         }
 
-        spawnObject();
-        draw();
+        spawnObject(); draw();
     </script>
 </body>
 </html>
