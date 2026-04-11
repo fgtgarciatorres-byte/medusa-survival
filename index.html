@@ -3,42 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>Jellyfish Survival: Remastered</title>
+    <title>Jellyfish Survival: The Final Chapter</title>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000511; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000511; overflow: hidden; font-family: 'Segoe UI', sans-serif; color: white; }
         canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
-
-        /* Estilos de las Pantallas de Menú */
+        
         .overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: radial-gradient(circle at center, #001a33 0%, #000511 100%);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            z-index: 9999; color: white; text-align: center; transition: opacity 0.5s;
+            z-index: 9999; text-align: center;
         }
-
-        h1 { font-size: 50px; margin: 0; text-transform: uppercase; letter-spacing: 4px; }
-        .glow-pink { color: #ff00ff; text-shadow: 0 0 20px #ff00ff, 0 0 10px #ff00ff; }
-        .glow-cyan { color: #00d4ff; text-shadow: 0 0 15px #00d4ff; }
-
-        button {
-            padding: 20px 50px; background: #ff00ff; color: white;
-            font-size: 26px; font-weight: bold; border: none; border-radius: 60px;
-            box-shadow: 0 0 30px rgba(255, 0, 255, 0.7); cursor: pointer;
-            margin-top: 30px; transition: transform 0.1s, box-shadow 0.2s;
-            -webkit-tap-highlight-color: transparent;
-        }
-        button:active { transform: scale(0.95); box-shadow: 0 0 10px rgba(255, 0, 255, 0.9); }
-
+        
         #ui {
             position: fixed; top: 20px; width: 100%; display: none;
             justify-content: space-around; align-items: center;
-            color: #00d4ff; font-weight: bold; font-size: 20px;
-            text-shadow: 0 0 10px rgba(0, 212, 255, 0.7); z-index: 500; pointer-events: none;
+            color: #00d4ff; font-weight: bold; font-size: 18px; z-index: 500; pointer-events: none;
         }
 
-        .hp-bar-boarder { width: 100px; height: 16px; background: rgba(255,255,255,0.1); border: 2px solid white; border-radius: 10px; overflow: hidden; box-shadow: 0 0 10px rgba(255,255,255,0.3); }
-        #hp-fill { width: 100%; height: 100%; background: linear-gradient(90deg, #ff3300, #ff6600); transition: width 0.3s ease-out; }
+        .hp-bar { width: 80px; height: 12px; background: rgba(255,255,255,0.1); border: 2px solid white; border-radius: 10px; overflow: hidden; }
+        #hp-fill { width: 100%; height: 100%; background: #ff3300; transition: width 0.3s; }
+
+        button {
+            padding: 20px 40px; background: #ff00ff; color: white; font-size: 24px; 
+            font-weight: bold; border: none; border-radius: 60px; box-shadow: 0 0 30px #ff00ff; 
+            cursor: pointer; -webkit-tap-highlight-color: transparent;
+        }
+
+        #boss-alert {
+            position: fixed; top: 100px; width: 100%; text-align: center;
+            color: #ff3300; font-size: 28px; font-weight: 900; display: none;
+            text-shadow: 0 0 20px red; z-index: 400; animation: blink 0.5s infinite;
+        }
+        @keyframes blink { 0% { opacity: 0; } 50% { opacity: 1; } 100% { opacity: 0; } }
     </style>
 </head>
 <body>
@@ -46,288 +43,184 @@
     <div id="ui">
         <div>PTS: <span id="score">0</span></div>
         <div style="display:flex; align-items:center; gap:8px;">
-            ❤️ <div class="hp-bar-boarder"><div id="hp-fill"></div></div>
+            ❤️ <div class="hp-bar"><div id="hp-fill"></div></div>
         </div>
         <div>LVL: <span id="level">1</span></div>
     </div>
 
+    <div id="boss-alert">¡JEFE TORTUGA AL ACECHO!</div>
+
     <div id="start-screen" class="overlay">
-        <h1 class="glow-pink">🪼 JELLYFISH</h1>
-        <h2 class="glow-cyan" style="margin-top:-10px;">SURVIVAL</h2>
-        <p style="margin:20px 0; max-width: 80%; line-height: 1.6; opacity: 0.9;">
-            Toca y arrastra para moverte.<br>
-            Esquiva burbujas. Busca al cangrejo 🦀 para curarte.
-        </p>
-        <button id="play-button">¡EMPEZAR!</button>
+        <h1 style="color:#ff00ff; font-size:45px; margin:0; text-shadow: 0 0 20px #ff00ff;">🪼 JELLYFISH</h1>
+        <h2 style="color:#00d4ff; margin:0 0 20px 0;">SURVIVAL</h2>
+        <button id="play-btn">¡JUGAR!</button>
+        <p style="margin-top:20px; font-size:14px; opacity:0.8;">Cangrejos 🦀 dan vida | Burbujas Azules 🔵 dan escudo</p>
     </div>
 
     <div id="game-over-screen" class="overlay" style="display:none;">
-        <h1 style="color:#ff3300; text-shadow: 0 0 20px red;">¡FIN!</h1>
-        <p style="font-size: 24px;">Puntuación: <span id="final-score" class="glow-cyan">0</span></p>
+        <h1 style="color:red; font-size:40px;">¡FIN DEL VIAJE!</h1>
+        <p>Puntuación Final: <span id="final-score" style="color:#00d4ff; font-size:24px;">0</span></p>
         <button onclick="location.reload()">REINTENTAR</button>
     </div>
 
     <canvas id="gameCanvas"></canvas>
 
     <script>
-        // --- INICIALIZACIÓN Y GRÁFICOS BASE ---
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         let width, height;
-        
-        function resize() {
-            width = canvas.width = window.innerWidth;
-            height = canvas.height = window.innerHeight;
-            // Regenerar partículas si cambia el tamaño
-            particles = [];
-            for(let i=0; i<40; i++) particles.push({x: Math.random()*width, y: Math.random()*height, s: Math.random()*2.5, v: Math.random()*0.6+0.1});
-        }
-        window.addEventListener('resize', resize);
+        const resize = () => { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; };
+        window.addEventListener('resize', resize); resize();
 
-        let audioCtx, gameStarted = false, gameOver = false, score = 0, hp = 3, level = 1;
-        let objects = [], particles = [], shield = 0, invul = 0;
-        const player = { x: 0, y: 0, r: 25 }; // Posición inicial se setea en resize
+        let audioCtx, gameStarted = false, gameOver = false;
+        let score = 0, hp = 3, level = 1, shieldTime = 0, invulTime = 0;
+        let isBossMode = false, bossX = width/2, bossDir = 3, bossShots = 0;
 
-        // Configuración inicial
-        resize();
-        player.x = width/2; player.y = height*0.7; // Posición de espera
+        const player = { x: width/2, y: height/2, r: 25 };
+        const objects = [];
+        const particles = Array.from({length: 35}, () => ({x: Math.random()*width, y: Math.random()*height, s: Math.random()*2, v: Math.random()*0.5+0.1}));
 
-        // --- SISTEMA DE AUDIO (Seguro) ---
-        function playSound(f, type='sine', dur=0.1) {
-            if (!audioCtx || gameOver) return;
-            try {
-                const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
-                o.type = type; o.frequency.setValueAtTime(f, audioCtx.currentTime);
-                g.gain.setValueAtTime(0.04, audioCtx.currentTime);
-                g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
-                o.connect(g); g.connect(audioCtx.destination);
-                o.start(); o.stop(audioCtx.currentTime + dur);
-            } catch(e){}
+        function playSnd(f, type='sine', d=0.1) {
+            if(!audioCtx) return;
+            const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+            o.type = type; o.frequency.setValueAtTime(f, audioCtx.currentTime);
+            g.gain.setValueAtTime(0.05, audioCtx.currentTime);
+            o.connect(g); g.connect(audioCtx.destination);
+            o.start(); o.stop(audioCtx.currentTime + d);
         }
 
-        // --- FUNCIONES DE DIBUJO HD ---
-
+        // --- DIBUJO ---
         function drawMedusa() {
             ctx.save();
-            const time = Date.now() * 0.004;
+            const time = Date.now() * 0.005;
+            const hasShield = shieldTime > 0;
+            if (invulTime > 0 && Math.floor(Date.now()/100)%2 === 0) ctx.globalAlpha = 0.3;
             
-            // Efecto de daño (parpadeo)
-            if (invul > 0 && Math.floor(Date.now()/100)%2 === 0) ctx.globalAlpha = 0.3;
+            if(hasShield) { ctx.shadowBlur = 20; ctx.shadowColor = "cyan"; }
 
-            // Aura de neón
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = "#ff00ff";
-
-            // Tentáculos (Undulantes y HD)
-            ctx.strokeStyle = "rgba(230, 180, 255, 0.7)";
-            ctx.lineWidth = 3.5; ctx.lineCap = "round";
+            // Tentáculos
+            ctx.strokeStyle = hasShield ? "cyan" : "rgba(230, 180, 255, 0.7)";
+            ctx.lineWidth = 3; ctx.lineCap = "round";
             for(let i=0; i<5; i++) {
-                ctx.beginPath();
-                ctx.moveTo(player.x - 18 + (i*9), player.y + 12);
-                for(let j=0; j<4; j++) {
-                    let ox = Math.sin(time + i*0.8 + j*0.5) * 11;
-                    ctx.quadraticCurveTo(player.x - 18 + (i*9) + ox, player.y + 20 + (j*10), player.x - 18 + (i*9), player.y + 35 + (j*10));
+                ctx.beginPath(); ctx.moveTo(player.x - 16 + i*8, player.y + 12);
+                for(let j=0; j<3; j++) {
+                    let ox = Math.sin(time + i + j) * 8;
+                    ctx.quadraticCurveTo(player.x-16+i*8+ox, player.y+20+j*10, player.x-16+i*8, player.y+30+j*10);
                 }
                 ctx.stroke();
             }
-
-            // Cuerpo (Gradiente HD)
-            const headGrad = ctx.createRadialGradient(player.x, player.y - 5, 5, player.x, player.y, player.r);
-            headGrad.addColorStop(0, "#ffb3e6"); headGrad.addColorStop(1, "#7700ee");
-            ctx.fillStyle = headGrad;
-            ctx.beginPath();
-            ctx.arc(player.x, player.y, player.r, Math.PI, 0);
-            ctx.lineTo(player.x + player.r, player.y + 15);
-            ctx.quadraticCurveTo(player.x, player.y + 25, player.x - player.r, player.y + 15);
-            ctx.closePath();
-            ctx.fill();
-            
-            // Ojos con Pupilas
-            ctx.shadowBlur = 0; // Quitar brillo para ojos
-            ctx.fillStyle = "white";
-            ctx.beginPath(); ctx.arc(player.x-9, player.y-5, 5, 0, 7); ctx.arc(player.x+9, player.y-5, 5, 0, 7); ctx.fill();
-            ctx.fillStyle = "black";
-            ctx.beginPath(); ctx.arc(player.x-9, player.y-5, 2.5, 0, 7); ctx.arc(player.x+9, player.y-5, 2.5, 0, 7); ctx.fill();
-            
-            ctx.restore();
-        }
-
-        function drawBubble(o) {
-            ctx.save();
-            // Gradiente radial para efecto esfera semi-transparente
-            const bubbleGrad = ctx.createRadialGradient(o.x - o.size/3, o.y - o.size/3, 1, o.x, o.y, o.size);
-            bubbleGrad.addColorStop(0, "rgba(255, 255, 255, 0.3)");
-            bubbleGrad.addColorStop(0.8, "rgba(100, 200, 255, 0.1)");
-            bubbleGrad.addColorStop(1, "rgba(255, 255, 255, 0.6)"); // Borde brillante
-
-            ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, 7);
-            ctx.fillStyle = bubbleGrad;
-            ctx.fill();
-            
-            // Reflejo de luz
-            ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
-            ctx.beginPath(); ctx.ellipse(o.x - o.size/2, o.y - o.size/2, o.size/4, o.size/6, Math.PI/4, 0, 7); ctx.fill();
-            ctx.restore();
-        }
-
-        function drawCrab(o) {
-            ctx.save();
-            ctx.translate(o.x, o.y);
-            ctx.fillStyle = "#ff4400"; ctx.shadowBlur = 10; ctx.shadowColor = "red";
             // Cuerpo
-            ctx.beginPath(); ctx.ellipse(0, 0, 22, 16, 0, 0, 7); ctx.fill();
-            // Patas simplificadas pero con movimiento
-            ctx.strokeStyle = "#ff4400"; ctx.lineWidth = 3;
-            const legMove = Math.sin(Date.now()*0.01)*5;
-            for(let i=0; i<3; i++) {
-                ctx.beginPath(); ctx.moveTo(-15, 5-i*5); ctx.lineTo(-25-legMove, 10-i*5); ctx.stroke();
-                ctx.beginPath(); ctx.moveTo(15, 5-i*5); ctx.lineTo(25+legMove, 10-i*5); ctx.stroke();
-            }
-            // Pinzas
-            ctx.beginPath(); ctx.arc(-18, -12, 9, 0, 7); ctx.arc(18, -12, 9, 0, 7); ctx.fill();
+            const grad = ctx.createRadialGradient(player.x, player.y, 5, player.x, player.y, player.r);
+            grad.addColorStop(0, hasShield ? "#fff" : "#ffb3e6"); grad.addColorStop(1, hasShield ? "#00ffff" : "#7700ee");
+            ctx.fillStyle = grad;
+            ctx.beginPath(); ctx.arc(player.x, player.y, player.r, Math.PI, 0);
+            ctx.lineTo(player.x+player.r, player.y+15); ctx.quadraticCurveTo(player.x, player.y+22, player.x-player.r, player.y+15); ctx.fill();
+            // Ojos
+            ctx.fillStyle = "white"; ctx.beginPath(); ctx.arc(player.x-8, player.y-5, 5, 0, 7); ctx.arc(player.x+8, player.y-5, 5, 0, 7); ctx.fill();
+            ctx.fillStyle = "black"; ctx.beginPath(); ctx.arc(player.x-8, player.y-5, 2, 0, 7); ctx.arc(player.x+8, player.y-5, 2, 0, 7); ctx.fill();
             ctx.restore();
         }
 
-        function drawStar(o) {
-            ctx.save();
-            ctx.fillStyle = "yellow"; ctx.shadowBlur = 20; ctx.shadowColor = "yellow";
-            ctx.beginPath();
-            for(let i=0; i<5; i++) {
-                ctx.lineTo(Math.cos((18+i*72)/180*Math.PI)*o.size + o.x, Math.sin((18+i*72)/180*Math.PI)*o.size + o.y);
-                ctx.lineTo(Math.cos((54+i*72)/180*Math.PI)*(o.size/2) + o.x, Math.sin((54+i*72)/180*Math.PI)*(o.size/2) + o.y);
-            }
-            ctx.closePath(); ctx.fill();
+        function drawTurtle() {
+            ctx.save(); ctx.translate(bossX, 80);
+            ctx.fillStyle = "#1a3a16"; ctx.beginPath(); ctx.ellipse(0, 0, 55, 40, 0, 0, 7); ctx.fill(); // Caparazón
+            ctx.fillStyle = "#66cc5c"; ctx.beginPath(); ctx.ellipse(0, -45, 18, 22, 0, 0, 7); ctx.fill(); // Cabeza
+            ctx.fillStyle = "red"; ctx.beginPath(); ctx.arc(-6, -50, 2, 0, 7); ctx.arc(6, -50, 2, 0, 7); ctx.fill(); // Ojos
             ctx.restore();
         }
 
-        // --- MOTOR DE JUEGO BLINDADO ---
-
-        function startGame() {
-            if (gameStarted) return; // Evitar doble inicio
-            console.log("Iniciando aventura...");
-            try {
-                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                if (audioCtx.state === 'suspended') audioCtx.resume();
-                
-                gameStarted = true;
-                // Ocultar portada con transicion suave
-                document.getElementById('start-screen').style.opacity = '0';
-                setTimeout(()=> document.getElementById('start-screen').style.display = 'none', 500);
-                
-                document.getElementById('ui').style.display = 'flex';
-                
-                spawn();
-                loop(); // Arrancar bucle de actualización
-            } catch (e) { alert("Error al iniciar audio: " + e.message); gameStarted = true; loop(); }
-        }
-
-        // BINDING BLINDADO DE EVENTOS
-        const playBtn = document.getElementById('play-button');
-        playBtn.addEventListener('click', startGame);
-        playBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startGame(); }); // LA CLAVE PARA MÓVIL
-
-        // Control de movimiento
-        const move = (e) => {
-            if(!gameStarted || gameOver) return;
-            const t = e.touches ? e.touches[0] : e;
-            player.x = t.clientX; player.y = t.clientY;
-        };
-        window.addEventListener('touchmove', move, {passive: false});
-        window.addEventListener('mousemove', move);
-
+        // --- LÓGICA ---
         function spawn() {
-            if (!gameStarted || gameOver) return;
+            if (!gameStarted || gameOver || isBossMode) return;
             const r = Math.random();
             let type = 'bubble';
-            if (r > 0.98) type = 'crab';
-            else if (r > 0.93) type = 'star';
-            else if (r > 0.82 && level >= 2) type = 'bomb'; // Naranja explosiva
+            if (r > 0.985) type = 'crab';
+            else if (r > 0.95) type = 'shield';
+            else if (r > 0.88) type = 'star';
+            else if (r > 0.80 && level >= 2) type = 'bomb';
 
             objects.push({
                 x: type === 'crab' ? -40 : Math.random() * width,
-                y: type === 'crab' ? height * 0.88 : -50,
-                vx: type === 'crab' ? 2.2 : 0,
+                y: type === 'crab' ? height * 0.85 : -50,
+                vx: type === 'crab' ? 2 : 0,
                 vy: type === 'crab' ? 0 : 2.5 + level * 0.4,
-                size: type === 'bomb' ? 22 : 20, type: type, t: 110 // Timer explosion
+                size: 20, type: type, t: 120
             });
-            setTimeout(spawn, Math.max(300, 1000 - (level * 60)));
+            setTimeout(spawn, Math.max(300, 1100 - (level * 70)));
+        }
+
+        function spawnBossShot() {
+            if (!isBossMode || gameOver) return;
+            objects.push({ x: bossX, y: 120, vx: 0, vy: 5 + level, size: 14, type: 'bullet' });
+            playSnd(150, 'sawtooth');
+            if (--bossShots > 0) setTimeout(spawnBossShot, 900 - (level*50));
+            else setTimeout(() => { isBossMode = false; document.getElementById('boss-alert').style.display = 'none'; spawn(); }, 3000);
         }
 
         function update() {
-            invul = Math.max(0, invul - 16);
+            if(!gameStarted || gameOver) return;
+
+            if (score > 0 && score % 50 === 0 && !isBossMode) {
+                isBossMode = true; bossShots = 10 + level;
+                document.getElementById('boss-alert').style.display = 'block';
+                objects.length = 0; setTimeout(spawnBossShot, 2000);
+            }
+            if (isBossMode) { bossX += bossDir; if(bossX > width-60 || bossX < 60) bossDir *= -1; }
+
+            shieldTime = Math.max(0, shieldTime - 16);
+            invulTime = Math.max(0, invulTime - 16);
+
             for (let i = 0; i < objects.length; i++) {
-                let o = objects[i];
-                o.x += o.vx; o.y += o.vy;
-                
-                // Lógica de bomba naranja (Nivel 2+)
+                let o = objects[i]; o.x += o.vx; o.y += o.vy;
                 if (o.type === 'bomb' && --o.t <= 0) {
-                    playSound(150, 'square');
-                    // Fragmentos que rebotan
-                    objects.push({ x: o.x, y: o.y, vx: 3.5, vy: 3.5, size: 11, type: 'frag' });
-                    objects.push({ x: o.x, y: o.y, vx: -3.5, vy: 3.5, size: 11, type: 'frag' });
+                    objects.push({x:o.x, y:o.y, vx:3, vy:3, size:10, type:'bullet'});
+                    objects.push({x:o.x, y:o.y, vx:-3, vy:3, size:10, type:'bullet'});
                     objects.splice(i, 1); i--; continue;
                 }
-                if(o.type === 'frag' && (o.x < 10 || o.x > width-10)) o.vx *= -1; // Rebote lateral
-
-                // Colisión
                 let d = Math.hypot(player.x - o.x, player.y - o.y);
-                if(d < player.r + o.size - 5) { // Pequeño margen de error
-                    if(o.type === 'star') { score += 15; playSound(800); }
-                    else if(o.type === 'crab') { hp = Math.min(3, hp+1); playSound(600); }
-                    else if(invul <= 0) { 
-                        hp--; invul = 1500; playSound(100, 'sawtooth');
-                        if(hp <= 0) { gameOver = true; document.getElementById('game-over-screen').style.display = 'flex'; document.getElementById('final-score').innerText = score; }
+                if (d < player.r + o.size - 5) {
+                    if (o.type === 'star') { score += 15; playSnd(800); }
+                    else if (o.type === 'shield') { shieldTime = 6000; playSnd(1000); }
+                    else if (o.type === 'crab') { hp = Math.min(3, hp+1); playSnd(600); }
+                    else if (shieldTime <= 0 && invulTime <= 0) {
+                        hp--; invulTime = 1500; playSnd(80, 'sawtooth');
+                        if (hp <= 0) { gameOver = true; document.getElementById('game-over-screen').style.display = 'flex'; document.getElementById('final-score').innerText = score; }
                     }
-                    if (o.type !== 'frag') { objects.splice(i, 1); i--; } // Los fragmentos no desaparecen al tocar
-                }
-                else if(o.y > height + 60 || o.x > width + 60) { if(o.type === 'bubble') score++; objects.splice(i,1); i--; }
+                    if (o.type !== 'bullet' || shieldTime > 0) { objects.splice(i, 1); i--; }
+                } else if (o.y > height + 60 || o.x > width + 100) { if(o.type==='bubble') score++; objects.splice(i,1); i--; }
             }
             level = Math.floor(score/40) + 1;
+            document.getElementById('score').innerText = score; document.getElementById('level').innerText = level;
+            document.getElementById('hp-fill').style.width = (hp/3*100) + '%';
         }
 
         function loop() {
-            // Fondo Marino Dinámico (Gradiente HD)
-            const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
-            bgGrad.addColorStop(0, "#001a33"); bgGrad.addColorStop(1, "#000511");
-            ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, width, height);
-
-            // Partículas plankton
-            particles.forEach(p => {
-                p.y += p.v; if(p.y > height) p.y = 0;
-                ctx.fillStyle = "rgba(255,255,255,0.25)"; ctx.beginPath(); ctx.arc(p.x, p.y, p.s, 0, 7); ctx.fill();
+            ctx.fillStyle = isBossMode ? "#1a0505" : "#000511"; ctx.fillRect(0,0,width,height);
+            particles.forEach(p => { p.y += p.v; if(p.y > height) p.y = 0; ctx.fillStyle = "rgba(255,255,255,0.1)"; ctx.beginPath(); ctx.arc(p.x, p.y, p.s, 0, 7); ctx.fill(); });
+            
+            if(isBossMode) drawTurtle();
+            objects.forEach(o => {
+                ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, 7);
+                ctx.fillStyle = o.type === 'star' ? 'yellow' : (o.type === 'shield' ? '#00ffff' : (o.type === 'crab' ? '#ff4400' : (o.type === 'bullet' ? 'red' : (o.type === 'bomb' ? 'orange' : 'white'))));
+                ctx.fill();
             });
 
-            if(gameStarted && !gameOver) {
-                // Dibujar objetos ordenados por tipo para optimizar brillos
-                objects.forEach(o => {
-                    if(o.type === 'star') drawStar(o);
-                    else if(o.type === 'crab') drawCrab(o);
-                    else if(o.type === 'bomb') { 
-                        ctx.fillStyle = (Math.floor(Date.now()/100)%2) ? "orange" : "red"; 
-                        ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, 7); ctx.fill(); 
-                    }
-                    else if(o.type === 'frag') {
-                        ctx.fillStyle = "#ff4400"; ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, 7); ctx.fill();
-                    }
-                    else drawBubble(o);
-                });
-
-                drawMedusa();
-                update();
-                
-                // UI update
-                document.getElementById('score').innerText = score;
-                document.getElementById('level').innerText = level;
-                document.getElementById('hp-fill').style.width = (hp/3*100) + '%';
-            } else if (!gameStarted) {
-                // Dibujar medusa de espera en portada
-                player.y = height * 0.7 + Math.sin(Date.now()*0.002)*15; // Flotación suave
-                drawMedusa();
-            }
+            if(gameStarted) { drawMedusa(); update(); }
             requestAnimationFrame(loop);
         }
 
-        loop(); // El motor gráfico arranca de fondo
+        // --- ARRANQUE ---
+        const start = () => {
+            if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            audioCtx.resume(); gameStarted = true;
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('ui').style.display = 'flex';
+            spawn();
+        };
+        document.getElementById('play-btn').addEventListener('click', start);
+        document.getElementById('play-btn').addEventListener('touchstart', (e) => { e.preventDefault(); start(); });
+        window.addEventListener('touchmove', (e) => { player.x = e.touches[0].clientX; player.y = e.touches[0].clientY; }, {passive: false});
+        loop();
     </script>
 </body>
 </html>
