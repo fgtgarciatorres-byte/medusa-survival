@@ -4,16 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>Jellyfish Survival: Fix Edition</title>
+    <title>Jellyfish Survival Pro</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000511; font-family: 'Arial', sans-serif; color: white; }
-        canvas { display: block; touch-action: none; }
+        canvas { display: block; touch-action: none; position: absolute; top: 0; left: 0; z-index: 1; }
         
-        .overlay {
+        /* Capas de Interfaz */
+        .screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: radial-gradient(circle, #001a33 0%, #000511 100%);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            z-index: 100; text-align: center;
+            z-index: 100; text-align: center; background: rgba(0, 5, 20, 0.8);
         }
         
         #ui {
@@ -27,12 +27,16 @@
         #hp-fill { width: 100%; height: 100%; background: #ff3300; transition: width 0.3s; }
 
         button {
-            padding: 18px 35px; background: #ff00ff; border: none; border-radius: 50px;
-            color: white; font-weight: bold; font-size: 20px; cursor: pointer;
-            box-shadow: 0 0 25px #ff00ff; margin: 15px; animation: pulse 2s infinite;
+            padding: 20px 40px; background: #ff00ff; border: none; border-radius: 50px;
+            color: white; font-weight: bold; font-size: 22px; cursor: pointer;
+            box-shadow: 0 0 30px #ff00ff; margin: 15px; z-index: 110;
         }
 
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+        #boss-alert {
+            position: absolute; top: 100px; width: 100%; text-align: center;
+            color: #ff3300; font-size: 24px; font-weight: 900; display: none;
+            text-shadow: 0 0 15px red; z-index: 40;
+        }
     </style>
 </head>
 <body>
@@ -43,18 +47,19 @@
         </div>
         <div>LVL: <span id="level">1</span></div>
     </div>
+
+    <div id="boss-alert">¡ALERTA DE TORTUGA!</div>
     
-    <div id="start-screen" class="overlay">
-        <h1 style="color: #ff00ff; text-shadow: 0 0 20px #ff00ff; font-size: 45px; margin-bottom: 5px;">JELLYFISH</h1>
-        <h2 style="margin-top: 0; color: #00d4ff;">SURVIVAL</h2>
-        <div style="font-size: 80px; margin: 10px;">🪼</div>
-        <p style="max-width: 80%;">Toca y arrastra para moverte.<br>¡Cuidado con las explosiones!</p>
-        <button id="btn-play">¡JUGAR!</button>
+    <div id="start-screen" class="screen">
+        <h1 style="color: #ff00ff; text-shadow: 0 0 20px #ff00ff; font-size: 45px; margin: 0;">🪼 JELLYFISH</h1>
+        <h2 style="color: #00d4ff; margin: 0 0 20px 0;">SURVIVAL</h2>
+        <button onclick="startGame()">¡EMPEZAR!</button>
+        <p style="font-size: 14px; opacity: 0.8;">Mueve la medusa para esquivar.<br>Nivel 2: Burbujas explosivas 💥<br>Nivel 4: Jefe Tortuga 🐢</p>
     </div>
 
-    <div id="game-over-screen" class="overlay" style="display: none;">
-        <h1 style="color: #ff3300;">¡FIN DEL VIAJE!</h1>
-        <p>Puntos logrados: <span id="final-score">0</span></p>
+    <div id="game-over-screen" class="screen" style="display: none;">
+        <h1 style="color: #ff3300; font-size: 40px;">¡FIN!</h1>
+        <p>Puntuación Final: <span id="final-score">0</span></p>
         <button onclick="location.reload()">REINTENTAR</button>
     </div>
 
@@ -66,12 +71,12 @@
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
-        // --- AUDIO ENGINE ---
+        // --- AUDIO ---
         const AudioContext = window.AudioContext || window.webkitAudioContext;
-        const audioCtx = new AudioContext();
+        let audioCtx;
 
         function playSound(f, type='sine', dur=0.1) {
-            if (audioCtx.state === 'suspended') audioCtx.resume();
+            if (!audioCtx) return;
             const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
             o.type = type; o.frequency.setValueAtTime(f, audioCtx.currentTime);
             g.gain.setValueAtTime(0.05, audioCtx.currentTime);
@@ -80,69 +85,69 @@
             o.start(); o.stop(audioCtx.currentTime + dur);
         }
 
-        // --- GAME STATE ---
+        // --- ESTADO DEL JUEGO ---
         let score = 0, level = 1, hp = 3, gameOver = false, gameStarted = false;
         let shieldTime = 0, invulTime = 0, isBossMode = false;
-        const player = { x: canvas.width/2, y: canvas.height * 0.8, radius: 25 };
+        let bossX = canvas.width / 2, bossDir = 3, bossShots = 0;
+        
+        const player = { x: canvas.width / 2, y: canvas.height * 0.7, radius: 25 };
         const objects = [];
         const particles = Array.from({ length: 30 }, () => ({
-            x: Math.random()*canvas.width, y: Math.random()*canvas.height,
-            size: Math.random()*2, speed: Math.random()*0.5 + 0.2
+            x: Math.random() * canvas.width, y: Math.random() * canvas.height,
+            size: Math.random() * 2, speed: Math.random() * 0.5 + 0.2
         }));
 
-        // --- CONTROLS ---
-        function moveHandler(e) {
-            if(!gameStarted || gameOver) return;
+        // --- CONTROLES ---
+        function handleInput(e) {
+            if (!gameStarted || gameOver) return;
             const t = e.touches ? e.touches[0] : e;
             player.x = t.clientX;
             player.y = t.clientY;
         }
-        canvas.addEventListener('touchmove', moveHandler);
-        canvas.addEventListener('mousemove', moveHandler);
+        canvas.addEventListener('touchmove', handleInput);
+        canvas.addEventListener('mousemove', handleInput);
 
-        document.getElementById('btn-play').addEventListener('click', () => {
+        function startGame() {
+            if (!audioCtx) audioCtx = new AudioContext();
             audioCtx.resume();
+            gameStarted = true;
             document.getElementById('start-screen').style.display = 'none';
             document.getElementById('ui').style.display = 'flex';
-            gameStarted = true;
-            spawnObject(); // Inicia la lluvia de objetos
-            loop(); // Inicia el dibujo
-        });
+            spawnObject();
+        }
 
         function spawnObject() {
-            if (gameOver || !gameStarted) return;
+            if (gameOver || isBossMode || !gameStarted) return;
             
             const rand = Math.random();
             let type = 'obstacle';
-            if (rand > 0.98) type = 'crab';
-            else if (rand > 0.95) type = 'shield';
-            else if (rand > 0.88) type = 'star';
-            else if (rand > 0.80 && level >= 2) type = 'explosive';
+            if (rand > 0.985) type = 'crab'; // Cangrejo muy raro
+            else if (rand > 0.96) type = 'shield';
+            else if (rand > 0.90) type = 'star';
+            else if (rand > 0.82 && level >= 2) type = 'explosive'; // Naranja
 
-            const obj = {
-                x: type === 'crab' ? -50 : Math.random()*canvas.width,
-                y: type === 'crab' ? canvas.height * 0.9 : -50,
-                vx: type === 'crab' ? 2.5 : 0,
+            objects.push({
+                x: type === 'crab' ? -40 : Math.random() * canvas.width,
+                y: type === 'crab' ? canvas.height * 0.85 : -50,
+                vx: type === 'crab' ? 2 : 0,
                 vy: type === 'crab' ? 0 : 3 + (level * 0.5),
-                size: type === 'crab' ? 25 : (type === 'obstacle' ? 18+Math.random()*15 : 22),
-                type: type, 
-                timer: 120
-            };
-            
-            objects.push(obj);
-            setTimeout(spawnObject, Math.max(300, 1200 - (level * 80)));
+                size: type === 'crab' ? 22 : (type === 'obstacle' ? 15 + Math.random()*20 : 22),
+                type: type, timer: 120
+            });
+
+            setTimeout(spawnObject, Math.max(300, 1100 - (level * 70)));
         }
 
         function drawMedusa() {
             const time = Date.now() * 0.005;
-            const invul = invulTime > 0 || shieldTime > 0;
+            const active = shieldTime > 0 || invulTime > 0;
             
             ctx.save();
-            if (invulTime > 0 && Math.floor(Date.now()/100)%2 === 0) ctx.globalAlpha = 0.4;
+            if (invulTime > 0 && Math.floor(Date.now()/100)%2 === 0) ctx.globalAlpha = 0.3;
             if (shieldTime > 0) { ctx.shadowBlur = 20; ctx.shadowColor = "cyan"; }
 
             // Cuerpo
-            const g = ctx.createRadialGradient(player.x, player.y, 5, player.x, player.y, player.radius);
+            const g = ctx.createRadialGradient(player.x, player.y, 5, player.x, player.y, 25);
             g.addColorStop(0, shieldTime > 0 ? "#fff" : "#ffb3e6");
             g.addColorStop(1, shieldTime > 0 ? "#00ffff" : "#7700ee");
             ctx.fillStyle = g;
@@ -154,23 +159,20 @@
 
             // Ojos
             ctx.fillStyle = "white";
-            ctx.beginPath(); ctx.arc(player.x-9, player.y-5, 5, 0, 7); 
-            ctx.arc(player.x+9, player.y-5, 5, 0, 7); ctx.fill();
+            ctx.beginPath(); ctx.arc(player.x-8, player.y-5, 5, 0, 7); ctx.arc(player.x+8, player.y-5, 5, 0, 7); ctx.fill();
             ctx.fillStyle = "black";
-            ctx.beginPath(); ctx.arc(player.x-9, player.y-5, 2, 0, 7); 
-            ctx.arc(player.x+9, player.y-5, 2, 0, 7); ctx.fill();
+            ctx.beginPath(); ctx.arc(player.x-8, player.y-5, 2, 0, 7); ctx.arc(player.x+8, player.y-5, 2, 0, 7); ctx.fill();
 
-            // Tentáculos (Recuperados)
-            ctx.lineWidth = 3;
-            ctx.lineCap = "round";
+            // TENTÁCULOS (REFORZADOS)
+            ctx.strokeStyle = shieldTime > 0 ? "cyan" : "rgba(230, 180, 255, 0.8)";
+            ctx.lineWidth = 3; ctx.lineCap = "round";
             for(let i=0; i<5; i++) {
                 ctx.beginPath();
                 ctx.moveTo(player.x - 16 + (i*8), player.y + 15);
                 for(let j=0; j<3; j++) {
-                    let ox = Math.sin(time + i + j) * 8;
-                    ctx.quadraticCurveTo(player.x-16+(i*8)+ox, player.y+22+(j*10), player.x-16+(i*8), player.y+32+(j*10));
+                    let ox = Math.sin(time + i + j) * 7;
+                    ctx.quadraticCurveTo(player.x-16+(i*8)+ox, player.y+20+(j*10), player.x-16+(i*8), player.y+30+(j*10));
                 }
-                ctx.strokeStyle = shieldTime > 0 ? "#00ffff" : "rgba(230, 180, 255, 0.8)";
                 ctx.stroke();
             }
             ctx.restore();
@@ -180,16 +182,55 @@
             ctx.save();
             ctx.translate(o.x, o.y);
             ctx.fillStyle = "#ff4400";
-            ctx.beginPath(); ctx.ellipse(0, 0, 20, 15, 0, 0, 7); ctx.fill(); // Cuerpo
-            ctx.strokeStyle = "#ff4400"; ctx.lineWidth = 3;
-            for(let i=-1; i<=1; i++) { // Patas
-                ctx.beginPath(); ctx.moveTo(15*i, 0); ctx.lineTo(25*i, 10); ctx.stroke();
-            }
-            ctx.beginPath(); ctx.arc(-15, -10, 8, 0, 7); ctx.arc(15, -10, 8, 0, 7); ctx.fill(); // Pinzas
+            ctx.beginPath(); ctx.ellipse(0, 0, 20, 14, 0, 0, 7); ctx.fill();
+            // Pinzas
+            const move = Math.sin(Date.now()*0.01)*5;
+            ctx.beginPath(); ctx.arc(-15+move, -10, 7, 0, 7); ctx.arc(15-move, -10, 7, 0, 7); ctx.fill();
+            ctx.restore();
+        }
+
+        function drawTurtle() {
+            ctx.save();
+            ctx.translate(bossX, 80);
+            // Caparazón HD
+            const grad = ctx.createRadialGradient(0, 0, 5, 0, 0, 50);
+            grad.addColorStop(0, "#55a64b"); grad.addColorStop(1, "#1a3a16");
+            ctx.fillStyle = grad;
+            ctx.beginPath(); ctx.ellipse(0, 0, 55, 40, 0, 0, 7); ctx.fill();
+            ctx.strokeStyle = "rgba(0,0,0,0.3)"; ctx.lineWidth = 2; ctx.stroke();
+            // Cabeza
+            ctx.fillStyle = "#66cc5c";
+            ctx.beginPath(); ctx.ellipse(0, -45, 18, 22, 0, 0, 7); ctx.fill();
+            ctx.fillStyle = "white"; ctx.beginPath(); ctx.arc(-6, -50, 5, 0, 7); ctx.arc(6, -50, 5, 0, 7); ctx.fill();
+            ctx.fillStyle = "red"; ctx.beginPath(); ctx.arc(-6, -50, 2, 0, 7); ctx.arc(6, -50, 2, 0, 7); ctx.fill();
             ctx.restore();
         }
 
         function update() {
+            if (!gameStarted || gameOver) return;
+
+            // LÓGICA DE JEFE
+            if (score > 0 && score % 50 === 0 && !isBossMode) {
+                isBossMode = true; bossShots = 10 + level;
+                document.getElementById('boss-alert').style.display = 'block';
+                objects.length = 0;
+            }
+
+            if (isBossMode) {
+                bossX += bossDir;
+                if (bossX > canvas.width - 60 || bossX < 60) bossDir *= -1;
+                // Disparo de tortuga
+                if (Date.now() % 1000 < 20 && objects.length < 5) {
+                    objects.push({ x: bossX, y: 110, vx: 0, vy: 5 + level, size: 12, type: 'bullet' });
+                    playSound(150, 'sawtooth');
+                    if (--bossShots <= 0) {
+                        isBossMode = false; score += 10;
+                        document.getElementById('boss-alert').style.display = 'none';
+                        spawnObject();
+                    }
+                }
+            }
+
             shieldTime = Math.max(0, shieldTime - 16);
             invulTime = Math.max(0, invulTime - 16);
 
@@ -198,15 +239,16 @@
                 o.x += o.vx || 0;
                 o.y += o.vy || 0;
 
-                // Fragmentos rebotan
+                // Rebote fragmentos naranja
                 if (o.type === 'fragment') {
                     if (o.x < 10 || o.x > canvas.width - 10) o.vx *= -1;
                 }
 
+                // Explosión naranja
                 if (o.type === 'explosive' && --o.timer <= 0) {
-                    playSound(150, 'square');
-                    objects.push({ x: o.x, y: o.y, vx: 4, vy: 4, size: 12, type: 'fragment' });
-                    objects.push({ x: o.x, y: o.y, vx: -4, vy: 4, size: 12, type: 'fragment' });
+                    playSound(100, 'square');
+                    objects.push({ x: o.x, y: o.y, vx: 3, vy: 3, size: 10, type: 'fragment' });
+                    objects.push({ x: o.x, y: o.y, vx: -3, vy: 3, size: 10, type: 'fragment' });
                     objects.splice(i, 1); i--; continue;
                 }
 
@@ -215,9 +257,13 @@
                     if (o.type === 'crab') { hp = Math.min(3, hp + 1); playSound(600); objects.splice(i, 1); i--; }
                     else if (o.type === 'star') { score += 15; playSound(800); objects.splice(i, 1); i--; }
                     else if (o.type === 'shield') { shieldTime = 6000; playSound(1000); objects.splice(i, 1); i--; }
-                    else if (invulTime <= 0 && shieldTime <= 0) {
+                    else if (shieldTime <= 0 && invulTime <= 0) {
                         hp--; invulTime = 1500; playSound(80, 'sawtooth');
-                        if (hp <= 0) { gameOver = true; document.getElementById('game-over-screen').style.display = 'flex'; document.getElementById('final-score').innerText = score; }
+                        if (hp <= 0) { 
+                            gameOver = true; 
+                            document.getElementById('game-over-screen').style.display = 'flex';
+                            document.getElementById('final-score').innerText = score;
+                        }
                     } else if (shieldTime > 0) { objects.splice(i, 1); i--; }
                 }
 
@@ -233,31 +279,35 @@
         }
 
         function loop() {
-            if (gameOver) return;
             ctx.fillStyle = "#000511"; ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            // Fondo partículas
+            // Partículas fondo siempre activas
             particles.forEach(p => {
                 p.y += p.speed; if(p.y > canvas.height) p.y = 0;
-                ctx.fillStyle = "rgba(255,255,255,0.1)"; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, 7); ctx.fill();
+                ctx.fillStyle = "rgba(255,255,255,0.15)"; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, 7); ctx.fill();
             });
 
-            objects.forEach(o => {
-                if(o.type === 'crab') drawCrab(o);
-                else {
-                    ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, 7);
-                    ctx.fillStyle = o.type === 'explosive' ? (Math.floor(Date.now()/100)%2 ? "#ff6600" : "#ffcc00") : 
-                                   (o.type === 'star' ? 'yellow' : (o.type === 'shield' ? 'cyan' : (o.type === 'fragment' ? '#ff4400' : 'white')));
-                    ctx.fill();
-                }
-            });
-
-            drawMedusa();
-            update();
+            if (gameStarted && !gameOver) {
+                if (isBossMode) drawTurtle();
+                
+                objects.forEach(o => {
+                    if(o.type === 'crab') drawCrab(o);
+                    else {
+                        ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, 7);
+                        if (o.type === 'explosive') ctx.fillStyle = (Math.floor(Date.now()/100)%2) ? "#ff6600" : "#ffcc00";
+                        else if (o.type === 'fragment' || o.type === 'bullet') ctx.fillStyle = "#ff3300";
+                        else ctx.fillStyle = o.type === 'star' ? 'yellow' : (o.type === 'shield' ? 'cyan' : 'white');
+                        ctx.fill();
+                    }
+                });
+                drawMedusa();
+                update();
+            }
             requestAnimationFrame(loop);
         }
 
-        // El loop no empieza hasta que se pulsa JUGAR.
+        // LANZAR EL MOTOR (Se queda esperando a gameStarted)
+        loop();
     </script>
 </body>
 </html>
