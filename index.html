@@ -3,35 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Jellyfish Survival: Ultimate Fix</title>
+    <title>Jellyfish Ultra Fix</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #000511; font-family: sans-serif; color: white; }
-        canvas { display: block; touch-action: none; position: fixed; top: 0; left: 0; }
+        /* Estilos críticos para que nada bloquee el botón */
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000511; overflow: hidden; font-family: sans-serif; }
         
-        /* Capa superior para menús */
-        .overlay {
+        canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
+
+        #start-screen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 10, 30, 0.95);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            z-index: 1000; background: rgba(0, 5, 20, 0.9); text-align: center;
+            z-index: 9999; /* El valor más alto posible */
+            color: white; text-align: center;
         }
-        
+
+        button {
+            padding: 25px 50px; background: #ff00ff; color: white;
+            font-size: 28px; font-weight: bold; border: none; border-radius: 60px;
+            box-shadow: 0 0 30px #ff00ff; cursor: pointer;
+            -webkit-tap-highlight-color: transparent; /* Elimina flash en móvil */
+        }
+
         #ui {
             position: fixed; top: 10px; width: 100%; display: none;
-            justify-content: space-around; align-items: center;
-            z-index: 500; pointer-events: none; color: #00d4ff; font-weight: bold;
+            justify-content: space-around; color: #00d4ff; font-weight: bold; z-index: 500;
         }
 
         .hp-bar { width: 60px; height: 10px; background: #333; border: 1px solid white; border-radius: 5px; overflow: hidden; }
         #hp-fill { width: 100%; height: 100%; background: #ff3300; }
-
-        button {
-            padding: 20px 40px; background: #ff00ff; border: none; border-radius: 50px;
-            color: white; font-weight: bold; font-size: 24px; cursor: pointer;
-            box-shadow: 0 0 20px #ff00ff; z-index: 1100;
-        }
     </style>
 </head>
 <body>
+
     <div id="ui">
         <div>PTS: <span id="score">0</span></div>
         <div style="display:flex; align-items:center; gap:5px;">
@@ -40,184 +44,123 @@
         <div>LVL: <span id="level">1</span></div>
     </div>
 
-    <div id="start-screen" class="overlay">
-        <h1 style="margin:0; color:#ff00ff; font-size:40px;">🪼 JELLYFISH</h1>
-        <p>Esquiva las burbujas<br>¡Busca el cangrejo 🦀 para curarte!</p>
-        <button id="play-button">¡JUGAR!</button>
-    </div>
-
-    <div id="game-over-screen" class="overlay" style="display:none;">
-        <h1 style="color:red;">FIN DEL JUEGO</h1>
-        <p>Puntos: <span id="final-score">0</span></p>
-        <button onclick="location.reload()">REINTENTAR</button>
+    <div id="start-screen">
+        <h1 style="color:#ff00ff; font-size:45px; margin:0;">🪼 JELLYFISH</h1>
+        <p style="margin:20px 0;">Esquiva burbujas y busca al cangrejo 🦀</p>
+        <button id="main-btn" onclick="initGame()">¡JUGAR!</button>
+        <p id="debug-msg" style="font-size:12px; margin-top:20px; color:gray;">Esperando inicio...</p>
     </div>
 
     <canvas id="gameCanvas"></canvas>
 
     <script>
-        // --- INICIALIZACIÓN ---
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        let width = canvas.width = window.innerWidth;
-        let height = canvas.height = window.innerHeight;
-
-        let audioCtx = null;
-        let gameStarted = false;
-        let gameOver = false;
-        let score = 0, level = 1, hp = 3;
-        let shieldTime = 0, invulTime = 0;
+        let width, height;
         
-        const player = { x: width / 2, y: height / 2, radius: 22 };
-        const objects = [];
-        const particles = Array.from({ length: 25 }, () => ({
-            x: Math.random() * width, y: Math.random() * height,
-            s: Math.random() * 2, v: Math.random() * 0.5 + 0.2
-        }));
-
-        // --- SONIDOS SEGUROS ---
-        function playPop(f) {
-            if (!audioCtx) return;
-            const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
-            o.frequency.setValueAtTime(f, audioCtx.currentTime);
-            g.gain.setValueAtTime(0.05, audioCtx.currentTime);
-            o.connect(g); g.connect(audioCtx.destination);
-            o.start(); o.stop(audioCtx.currentTime + 0.1);
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
         }
+        window.addEventListener('resize', resize);
+        resize();
 
-        // --- FUNCIONES DE DIBUJO ---
-        function drawMedusa() {
-            ctx.save();
-            const time = Date.now() * 0.005;
-            if (invulTime > 0 && Math.floor(Date.now()/100)%2 === 0) ctx.globalAlpha = 0.2;
+        let audioCtx, gameStarted = false, score = 0, hp = 3, level = 1;
+        let objects = [], particles = [], shield = 0, invul = 0;
+
+        // Generar partículas de fondo
+        for(let i=0; i<30; i++) particles.push({x: Math.random()*width, y: Math.random()*height, s: Math.random()*2, v: Math.random()*0.5+0.1});
+
+        // FUNCIÓN DE INICIO (La que falla)
+        function initGame() {
+            console.log("Intentando iniciar...");
+            document.getElementById('debug-msg').innerText = "Cargando motor...";
             
-            // Tentáculos (Siempre dibujados antes que el cuerpo)
-            ctx.strokeStyle = shieldTime > 0 ? "cyan" : "#e6b3ff";
-            ctx.lineWidth = 3; ctx.lineCap = "round";
-            for(let i=0; i<5; i++) {
-                ctx.beginPath();
-                ctx.moveTo(player.x - 15 + (i*7.5), player.y + 10);
-                for(let j=0; j<3; j++) {
-                    let ox = Math.sin(time + i + j) * 8;
-                    ctx.quadraticCurveTo(player.x - 15 + (i*7.5) + ox, player.y + 15 + (j*8), player.x - 15 + (i*7.5), player.y + 25 + (j*8));
-                }
-                ctx.stroke();
+            try {
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                
+                gameStarted = true;
+                document.getElementById('start-screen').style.display = 'none';
+                document.getElementById('ui').style.display = 'flex';
+                
+                spawn();
+                loop();
+            } catch (e) {
+                document.getElementById('debug-msg').innerText = "Error: " + e.message;
             }
-
-            // Cuerpo
-            ctx.fillStyle = shieldTime > 0 ? "cyan" : "#7700ee";
-            ctx.beginPath();
-            ctx.arc(player.x, player.y, player.radius, Math.PI, 0);
-            ctx.lineTo(player.x + player.radius, player.y + 10);
-            ctx.quadraticCurveTo(player.x, player.y + 18, player.x - player.radius, player.y + 10);
-            ctx.fill();
-            
-            // Ojos
-            ctx.fillStyle = "white";
-            ctx.beginPath(); ctx.arc(player.x-7, player.y-4, 4, 0, 7); ctx.arc(player.x+7, player.y-4, 4, 0, 7); ctx.fill();
-            ctx.restore();
         }
+
+        // Si el botón no funciona por el onclick, lo forzamos por JS
+        document.getElementById('main-btn').addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            initGame();
+        });
 
         function spawn() {
-            if (gameOver || !gameStarted) return;
-            const r = Math.random();
-            let type = 'bubble';
-            if (r > 0.98) type = 'crab';
-            else if (r > 0.94) type = 'shield';
-            else if (r > 0.88) type = 'star';
-            else if (r > 0.80 && level >= 2) type = 'bomb';
+            if (!gameStarted) return;
+            let type = Math.random() > 0.9 ? 'star' : (Math.random() > 0.97 ? 'crab' : 'bubble');
+            if(level >= 2 && Math.random() > 0.85) type = 'bomb';
 
             objects.push({
                 x: type === 'crab' ? -30 : Math.random() * width,
                 y: type === 'crab' ? height * 0.85 : -40,
                 vx: type === 'crab' ? 2 : 0,
-                vy: type === 'crab' ? 0 : 2.5 + (level * 0.4),
-                size: type === 'crab' ? 20 : 18,
-                type: type, t: 100
+                vy: type === 'crab' ? 0 : 2 + level * 0.5,
+                size: 20, type: type, t: 120
             });
-            setTimeout(spawn, Math.max(300, 1200 - (level * 60)));
+            setTimeout(spawn, 1000 - (level * 50));
         }
 
-        // --- BUCLE PRINCIPAL ---
-        function loop() {
-            ctx.fillStyle = "#000511"; ctx.fillRect(0, 0, width, height);
+        const player = { x: width/2, y: height/2, r: 22 };
+        window.addEventListener('touchmove', (e) => {
+            player.x = e.touches[0].clientX;
+            player.y = e.touches[0].clientY;
+        }, {passive: false});
 
-            // Fondo
+        function loop() {
+            if(!gameStarted) return;
+            ctx.fillStyle = "#000511"; ctx.fillRect(0,0,width,height);
+
+            // Partículas
             particles.forEach(p => {
                 p.y += p.v; if(p.y > height) p.y = 0;
                 ctx.fillStyle = "rgba(255,255,255,0.2)";
                 ctx.beginPath(); ctx.arc(p.x, p.y, p.s, 0, 7); ctx.fill();
             });
 
-            if (gameStarted && !gameOver) {
-                shieldTime = Math.max(0, shieldTime - 16);
-                invulTime = Math.max(0, invulTime - 16);
+            // Objetos
+            for(let i=0; i<objects.length; i++) {
+                let o = objects[i];
+                o.x += o.vx; o.y += o.vy;
+                
+                // Dibujo simple para máxima compatibilidad
+                ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, 7);
+                ctx.fillStyle = o.type === 'star' ? 'yellow' : (o.type === 'crab' ? 'red' : 'white');
+                if(o.type === 'bomb') ctx.fillStyle = 'orange';
+                ctx.fill();
 
-                for (let i = 0; i < objects.length; i++) {
-                    let o = objects[i];
-                    o.x += (o.vx || 0); o.y += (o.vy || 0);
-
-                    // Explosión naranja
-                    if (o.type === 'bomb' && --o.t <= 0) {
-                        objects.push({ x: o.x, y: o.y, vx: 3, vy: 3, size: 10, type: 'frag' });
-                        objects.push({ x: o.x, y: o.y, vx: -3, vy: 3, size: 10, type: 'frag' });
-                        objects.splice(i, 1); i--; continue;
-                    }
-
-                    const d = Math.hypot(player.x - o.x, player.y - o.y);
-                    if (d < player.radius + o.size) {
-                        if (o.type === 'crab') { hp = Math.min(3, hp + 1); playPop(600); }
-                        else if (o.type === 'star') { score += 10; playPop(800); }
-                        else if (o.type === 'shield') { shieldTime = 5000; }
-                        else if (shieldTime <= 0 && invulTime <= 0) {
-                            hp--; invulTime = 1500; playPop(100);
-                            if(hp <= 0) { gameOver = true; document.getElementById('game-over-screen').style.display = 'flex'; document.getElementById('final-score').innerText = score; }
-                        }
-                        if (o.type !== 'frag' || shieldTime > 0) { objects.splice(i, 1); i--; }
-                    }
-                    if (o.y > height + 50 || o.x > width + 50) { if(o.type === 'bubble') score++; objects.splice(i, 1); i--; }
+                // Colisión
+                let d = Math.hypot(player.x - o.x, player.y - o.y);
+                if(d < player.r + o.size) {
+                    if(o.type === 'star') score += 10;
+                    else if(o.type === 'crab') hp = Math.min(3, hp+1);
+                    else { hp--; if(hp <= 0) location.reload(); }
+                    objects.splice(i, 1); i--;
                 }
-
-                drawMedusa();
-                level = Math.floor(score / 30) + 1;
-                document.getElementById('score').innerText = score;
-                document.getElementById('hp-fill').style.width = (hp/3*100) + '%';
+                else if(o.y > height + 50) { if(o.type === 'bubble') score++; objects.splice(i,1); i--; }
             }
+
+            // Medusa con tentáculos
+            ctx.fillStyle = "#ff00ff";
+            ctx.beginPath(); ctx.arc(player.x, player.y, player.r, Math.PI, 0); ctx.fill();
+            for(let j=0; j<3; j++) ctx.fillRect(player.x-15+j*12, player.y, 4, 20);
+
+            level = Math.floor(score/30) + 1;
+            document.getElementById('score').innerText = score;
+            document.getElementById('hp-fill').style.width = (hp/3*100) + '%';
             requestAnimationFrame(loop);
         }
-
-        // --- EL ARRANQUE "BLINDADO" ---
-        const btn = document.getElementById('play-button');
-        
-        btn.addEventListener('click', function() {
-            // 1. Activar Audio
-            if (!audioCtx) {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            }
-            audioCtx.resume();
-
-            // 2. Cambiar Estados
-            gameStarted = true;
-            
-            // 3. UI
-            document.getElementById('start-screen').style.display = 'none';
-            document.getElementById('ui').style.display = 'flex';
-            
-            // 4. Iniciar lluvia de objetos
-            spawn();
-            
-            console.log("Juego iniciado");
-        });
-
-        // Controles de movimiento
-        const move = (e) => {
-            const t = e.touches ? e.touches[0] : e;
-            player.x = t.clientX; player.y = t.clientY;
-        };
-        window.addEventListener('touchmove', move);
-        window.addEventListener('mousemove', move);
-
-        // El dibujo siempre corre de fondo
-        loop();
     </script>
 </body>
 </html>
