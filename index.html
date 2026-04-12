@@ -479,4 +479,37 @@
                         ctx.closePath(); ctx.fill(); ctx.restore();
                     } else if(o.type === 'shield') {
                         ctx.fillStyle = "#00ffff"; ctx.shadowBlur = 20; ctx.shadowColor = "#00ffff";
-                        ctx.beginPath
+                        ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, Math.PI*2); ctx.fill(); 
+                        ctx.fillStyle = "white"; ctx.beginPath(); ctx.arc(o.x, o.y, o.size/2, 0, Math.PI*2); ctx.fill(); ctx.shadowBlur = 0;
+                    } else if(o.type === 'bomb') {
+                        ctx.fillStyle = "#333"; ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, Math.PI*2); ctx.fill();
+                        let pulse = Math.abs(Math.sin(Date.now() * (0.01 + (120 - o.t)*0.0002)));
+                        ctx.fillStyle = "rgba(255, 0, 0, " + pulse + ")"; ctx.shadowBlur = 10; ctx.shadowColor = "red";
+                        ctx.beginPath(); ctx.arc(o.x, o.y, o.size/2, 0, Math.PI*2); ctx.fill(); ctx.shadowBlur = 0;
+                    } else if(o.type === 'playerBullet' || o.type === 'shrapnel') {
+                        ctx.fillStyle = o.type === 'shrapnel' ? "#ffaa00" : "#00ffff"; ctx.shadowBlur = 5; ctx.shadowColor = "#fff";
+                        ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, Math.PI*2); ctx.fill(); ctx.shadowBlur = 0;
+                    } else if(o.type === 'bullet') {
+                        ctx.fillStyle = "red"; ctx.shadowBlur = 5; ctx.shadowColor = "red";
+                        ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, Math.PI*2); ctx.fill(); ctx.shadowBlur = 0;
+                    } else if(o.type === 'crab') {
+                        // ¡AQUÍ ESTÁ DE VUELTA EL CANGREJO COMPLETO!
+                        drawPowerupCrab(o);
+                    }
+                }
+                
+                if(!gameStarted) { player.x = width / 2; player.y = height * 0.7 + Math.sin(Date.now()*0.002)*15; }
+                drawPlayer(); 
+                if(gameStarted) update(); 
+
+            } catch(fatalError) { }
+            requestAnimationFrame(loop);
+        }
+
+        window.addEventListener('touchmove', function(e) { if(gameStarted) { player.x = e.touches[0].clientX; player.y = e.touches[0].clientY; } }, {passive: false});
+        window.addEventListener('mousemove', function(e) { if(gameStarted) { player.x = e.clientX; player.y = e.clientY; } });
+        
+        loop();
+    </script>
+</body>
+</html>
