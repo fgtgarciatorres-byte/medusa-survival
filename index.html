@@ -9,7 +9,6 @@
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000511; overflow: hidden; font-family: 'Segoe UI', sans-serif; color: white; }
         canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
         
-        /* OVERLAY 100% COMPATIBLE: Sin backdrop-filter que buguee la pantalla */
         .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 5, 15, 0.7); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; text-align: center; padding: 20px; box-sizing: border-box; }
         
         #ui { position: fixed; top: 20px; width: 100%; display: none; justify-content: space-around; align-items: center; color: #00d4ff; font-weight: bold; font-size: 18px; z-index: 500; pointer-events: none; text-shadow: 0 0 10px #00d4ff; }
@@ -102,7 +101,6 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         
-        // Calculo de tamaño super seguro
         let width = window.innerWidth > 0 ? window.innerWidth : 360;
         let height = window.innerHeight > 0 ? window.innerHeight : 640;
         
@@ -138,12 +136,7 @@
         let objects = [];
         let particles = [];
         for(let i=0; i<30; i++) {
-            particles.push({
-                x: Math.random() * width,
-                y: Math.random() * height,
-                s: Math.random() * 2 + 1,
-                v: Math.random() * 0.5 + 0.1
-            });
+            particles.push({ x: Math.random() * width, y: Math.random() * height, s: Math.random() * 2 + 1, v: Math.random() * 0.5 + 0.1 });
         }
 
         let selectedCharacter = 'jellyfish';
@@ -157,16 +150,13 @@
             } catch(e) {}
         }
 
-        // --- MANEJO DE EVENTOS ROBUSTO ---
         document.getElementById('to-char-select').onclick = function() {
             try {
                 let inputName = document.getElementById('player-name-input').value.trim().toUpperCase().substring(0,3);
                 if(inputName.length === 0) inputName = "AAA";
                 playerName = inputName;
-
                 if(!allProfiles[playerName]) allProfiles[playerName] = { bestScore: 0, diamonds: 0, trophies: 0 };
                 userData = allProfiles[playerName];
-
                 updateGlobalUI();
                 document.getElementById('start-screen').style.display = 'none';
                 document.getElementById('char-select-screen').style.display = 'flex';
@@ -178,7 +168,7 @@
             if((userData.bestScore || 0) < req) return; 
             selectedCharacter = type;
             let cards = document.querySelectorAll('.char-card');
-            for(let i=0; i<cards.length; i++) cards[i].classList.remove('selected'); // Viejo bucle 'for' compatible
+            for(let i=0; i<cards.length; i++) cards[i].classList.remove('selected');
             document.getElementById('char-' + type).classList.add('selected');
         }
 
@@ -197,11 +187,7 @@
                 saveProfile(); updateGlobalUI();
             } else { maxHp = 3; }
             
-            hp = maxHp; 
-            gameStarted = true;
-            player.x = width / 2;
-            player.y = height * 0.8; 
-
+            hp = maxHp; gameStarted = true; player.x = width / 2; player.y = height * 0.8; 
             document.getElementById('char-select-screen').style.display = 'none';
             document.getElementById('ui').style.display = 'flex';
             spawn();
@@ -232,7 +218,60 @@
             } catch(e){}
         }
 
-        // --- ARTE GRÁFICO REESCRITO SIN FUNCIONES INCOMPATIBLES ---
+        // --- ARTE RESTAURADO 100% COMPATIBLE ---
+
+        // DIBUJO DEL JEFE TORTUGA (Con óvalos seguros para móviles)
+        function drawTurtle() {
+            let time = Date.now() * 0.002;
+            ctx.save(); ctx.translate(bossX, 100);
+            ctx.shadowBlur = 30; ctx.shadowColor = "rgba(0,0,0,0.6)";
+
+            ctx.fillStyle = "#2d5a27";
+            for(let i=0; i<4; i++) {
+                ctx.save();
+                ctx.rotate((i < 2 ? -1 : 1) * 0.4 + Math.sin(time + i) * 0.2);
+                ctx.translate(i < 2 ? -50 : 50, i % 2 === 0 ? -20 : 20);
+                ctx.scale(1, 15/35); ctx.beginPath(); ctx.arc(0, 0, 35, 0, Math.PI*2); ctx.fill();
+                ctx.restore();
+            }
+
+            let grad = ctx.createRadialGradient(0, 0, 10, 0, 0, 70);
+            grad.addColorStop(0, "#4a9c43"); grad.addColorStop(1, "#1d3d19");
+            ctx.fillStyle = grad;
+            ctx.save(); ctx.scale(1, 55/75); ctx.beginPath(); ctx.arc(0, 0, 75, 0, Math.PI*2); ctx.fill(); ctx.restore();
+            ctx.strokeStyle = "#0d1f0b"; ctx.lineWidth = 3;
+            ctx.save(); ctx.scale(1, 55/75); ctx.beginPath(); ctx.arc(0, 0, 75, 0, Math.PI*2); ctx.stroke(); ctx.restore();
+
+            ctx.strokeStyle = "rgba(0,0,0,0.2)"; ctx.lineWidth = 2;
+            for(let j=-2; j<=2; j++) {
+                for(let k=-2; k<=2; k++) { ctx.beginPath(); ctx.arc(j*25, k*20, 12, 0, Math.PI*2); ctx.stroke(); }
+            }
+
+            ctx.fillStyle = "#66cc5c";
+            ctx.save(); ctx.translate(0, -65 + Math.sin(time)*5); ctx.scale(1, 30/25); ctx.beginPath(); ctx.arc(0, 0, 25, 0, Math.PI*2); ctx.fill(); ctx.stroke(); ctx.restore();
+            ctx.fillStyle = "red"; ctx.shadowBlur = 15; ctx.shadowColor = "red";
+            ctx.beginPath(); ctx.arc(-8, -75 + Math.sin(time)*5, 4, 0, Math.PI*2); ctx.arc(8, -75 + Math.sin(time)*5, 4, 0, Math.PI*2); ctx.fill();
+            ctx.restore();
+        }
+
+        // DIBUJO DEL CANGREJO DE VIDA (Con sus patas devueltas)
+        function drawPowerupCrab(o) {
+            ctx.save(); ctx.translate(o.x, o.y);
+            let time = Date.now() * 0.015;
+            ctx.fillStyle = "#e63900"; 
+            ctx.save(); ctx.scale(1, 16/22); ctx.beginPath(); ctx.arc(0, 0, 22, 0, Math.PI*2); ctx.fill(); ctx.restore();
+            let legM = Math.sin(time) * 5;
+            ctx.strokeStyle = "#e63900"; ctx.lineWidth = 3;
+            for(let i=0; i<3; i++) {
+                ctx.beginPath(); ctx.moveTo(-15, 5-i*5); ctx.lineTo(-25-legM, 10-i*5); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(15, 5-i*5); ctx.lineTo(25+legM, 10-i*5); ctx.stroke();
+            }
+            let clawM = Math.sin(Date.now()*0.01)*8;
+            ctx.beginPath(); ctx.arc(-18+clawM, -10, 8, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(18-clawM, -10, 8, 0, Math.PI*2); ctx.fill();
+            ctx.restore();
+        }
+
         function drawPlayer() {
             ctx.save();
             let time = Date.now() * 0.005;
@@ -250,13 +289,13 @@
                     }
                     ctx.stroke();
                 }
-                ctx.fillStyle = shieldTime > 0 ? "#bbffff" : "#e699ff"; // Color solido seguro
+                ctx.fillStyle = shieldTime > 0 ? "#bbffff" : "#e699ff";
                 ctx.beginPath(); ctx.arc(player.x, player.y, player.r, Math.PI, 0);
                 ctx.lineTo(player.x+player.r, player.y+15); ctx.quadraticCurveTo(player.x, player.y+25, player.x-player.r, player.y+15); ctx.fill();
             } 
             else if (selectedCharacter === 'crab') {
                 ctx.translate(player.x, player.y); ctx.fillStyle = "#e63900"; 
-                ctx.save(); ctx.scale(1, 18/25); ctx.beginPath(); ctx.arc(0, 0, 25, 0, Math.PI*2); ctx.fill(); ctx.restore(); // Polyfill de ellipse
+                ctx.save(); ctx.scale(1, 18/25); ctx.beginPath(); ctx.arc(0, 0, 25, 0, Math.PI*2); ctx.fill(); ctx.restore(); 
                 let legM = Math.sin(time*3) * 5; ctx.strokeStyle = "#e63900"; ctx.lineWidth = 4;
                 for(let i=0; i<3; i++) {
                     ctx.beginPath(); ctx.moveTo(-15, 5-i*5); ctx.lineTo(-28-legM, 10-i*5); ctx.stroke();
@@ -285,11 +324,9 @@
 
         function drawBubble(o) {
             ctx.save();
-            ctx.fillStyle = "rgba(180, 220, 255, 0.4)"; // Color sólido muy seguro para moviles
-            ctx.beginPath(); ctx.arc(o.x, o.y, Math.max(1, o.size), 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = "rgba(180, 220, 255, 0.4)"; ctx.beginPath(); ctx.arc(o.x, o.y, Math.max(1, o.size), 0, Math.PI*2); ctx.fill();
             ctx.strokeStyle = "rgba(255,255,255,0.7)"; ctx.lineWidth = 1; ctx.stroke();
-            ctx.fillStyle = "rgba(255,255,255,0.5)";
-            ctx.beginPath(); ctx.arc(o.x - o.size/3, o.y - o.size/3, o.size/4, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = "rgba(255,255,255,0.5)"; ctx.beginPath(); ctx.arc(o.x - o.size/3, o.y - o.size/3, o.size/4, 0, Math.PI*2); ctx.fill();
             ctx.restore();
         }
 
@@ -300,6 +337,15 @@
             let initVx = type === 'bubble' ? (Math.random() - 0.5) * 3 : (type === 'crab' ? 2.5 : 0);
             objects.push({ x: type === 'crab' ? -50 : Math.random()*width, y: type === 'crab' ? height*0.85 : -50, vx: initVx, vy: type === 'crab' ? 0 : 2.5 + level*0.4, size: 22, type: type, t: 120, dead: false });
             setTimeout(spawn, Math.max(300, 1100 - (level * 70)));
+        }
+
+        function spawnBossShot() {
+            if (!isBossMode || gameOver) return;
+            let angle = Math.atan2(player.y - 130, player.x - bossX);
+            objects.push({ x: bossX, y: 130, vx: Math.cos(angle)*6, vy: Math.sin(angle)*6, size: 15, type: 'bullet', dead: false });
+            bossShots--;
+            if (bossShots > 0) setTimeout(spawnBossShot, 800);
+            else { setTimeout(function() { isBossMode = false; nextBossAt += 100; document.getElementById('event-alert').style.display = 'none'; level++; spawn(); }, 3000); }
         }
 
         function update() {
@@ -325,9 +371,17 @@
                 }
             }
 
+            // GESTIÓN DEL JEFE
+            if (score >= nextBossAt && !isBossMode) { 
+                isBossMode = true; bossShots = 10 + level; 
+                document.getElementById('event-alert').innerText = "¡JEFE TORTUGA AL ACECHO! 🐢";
+                document.getElementById('event-alert').style.display = 'block';
+                objects.length = 0; setTimeout(spawnBossShot, 2000); 
+            }
+            if (isBossMode) { bossX += bossDir * (1 + level/6); if(bossX > width-80 || bossX < 80) bossDir *= -1; }
+
             shieldTime = Math.max(0, shieldTime - 16); invulTime = Math.max(0, invulTime - 16);
 
-            // LOGICA DE COLISIONES VIEJA ESCUELA (A PRUEBA DE BOMBAS)
             for (let i = 0; i < objects.length; i++) {
                 let o = objects[i];
                 if (o.dead) continue;
@@ -344,7 +398,6 @@
                 }
 
                 if (o.type !== 'playerBullet' && o.type !== 'shrapnel') {
-                    // Distancia clasica sin Math.hypot para max compatibilidad
                     let dx = player.x - o.x; let dy = player.y - o.y;
                     let dist = Math.sqrt(dx*dx + dy*dy);
                     
@@ -370,7 +423,6 @@
                 }
             }
 
-            // Colisiones de Balas
             for (let i = 0; i < objects.length; i++) {
                 let pb = objects[i];
                 if (pb.dead || (pb.type !== 'playerBullet' && pb.type !== 'shrapnel')) continue;
@@ -391,7 +443,6 @@
                 }
             }
 
-            // Limpieza de objetos muertos
             for (let i = objects.length - 1; i >= 0; i--) {
                 if (objects[i].dead) objects.splice(i, 1);
             }
@@ -400,7 +451,6 @@
             document.getElementById('hp-fill').style.width = (hp/maxHp*100) + '%';
         }
 
-        // BUCLE A PRUEBA DE FALLOS
         function loop() {
             try {
                 ctx.fillStyle = "#000511"; ctx.fillRect(0,0,width,height);
@@ -410,6 +460,9 @@
                     ctx.fillStyle = "rgba(255,255,255,0.15)"; ctx.beginPath(); ctx.arc(p.x, p.y, p.s, 0, Math.PI*2); ctx.fill();
                 }
                 
+                // ¡AQUÍ ESTÁ DE VUELTA EL JEFE TORTUGA!
+                if(isBossMode) drawTurtle();
+
                 for(let i=0; i<objects.length; i++) {
                     let o = objects[i];
                     if(o.type === 'bubble') drawBubble(o); 
@@ -426,37 +479,4 @@
                         ctx.closePath(); ctx.fill(); ctx.restore();
                     } else if(o.type === 'shield') {
                         ctx.fillStyle = "#00ffff"; ctx.shadowBlur = 20; ctx.shadowColor = "#00ffff";
-                        ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, Math.PI*2); ctx.fill(); 
-                        ctx.fillStyle = "white"; ctx.beginPath(); ctx.arc(o.x, o.y, o.size/2, 0, Math.PI*2); ctx.fill(); ctx.shadowBlur = 0;
-                    } else if(o.type === 'bomb') {
-                        ctx.fillStyle = "#333"; ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, Math.PI*2); ctx.fill();
-                        let pulse = Math.abs(Math.sin(Date.now() * (0.01 + (120 - o.t)*0.0002)));
-                        ctx.fillStyle = "rgba(255, 0, 0, " + pulse + ")"; ctx.shadowBlur = 10; ctx.shadowColor = "red";
-                        ctx.beginPath(); ctx.arc(o.x, o.y, o.size/2, 0, Math.PI*2); ctx.fill(); ctx.shadowBlur = 0;
-                    } else if(o.type === 'playerBullet' || o.type === 'shrapnel') {
-                        ctx.fillStyle = o.type === 'shrapnel' ? "#ffaa00" : "#00ffff"; ctx.shadowBlur = 5; ctx.shadowColor = "#fff";
-                        ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, Math.PI*2); ctx.fill(); ctx.shadowBlur = 0;
-                    } else if(o.type === 'bullet') {
-                        ctx.fillStyle = "red"; ctx.shadowBlur = 5; ctx.shadowColor = "red";
-                        ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, Math.PI*2); ctx.fill(); ctx.shadowBlur = 0;
-                    } else if(o.type === 'crab') {
-                        ctx.save(); ctx.translate(o.x, o.y); ctx.fillStyle = "#e63900"; 
-                        ctx.scale(1, 16/22); ctx.beginPath(); ctx.arc(0, 0, 22, 0, Math.PI*2); ctx.fill(); ctx.restore();
-                    }
-                }
-                
-                if(!gameStarted) { player.x = width / 2; player.y = height * 0.7 + Math.sin(Date.now()*0.002)*15; }
-                drawPlayer(); 
-                if(gameStarted) update(); 
-
-            } catch(fatalError) { }
-            requestAnimationFrame(loop);
-        }
-
-        window.addEventListener('touchmove', function(e) { if(gameStarted) { player.x = e.touches[0].clientX; player.y = e.touches[0].clientY; } }, {passive: false});
-        window.addEventListener('mousemove', function(e) { if(gameStarted) { player.x = e.clientX; player.y = e.clientY; } });
-        
-        loop();
-    </script>
-</body>
-</html>
+                        ctx.beginPath
