@@ -117,7 +117,6 @@
         };
         updateGlobalUI();
 
-        // --- NAVEGACIÓN ---
         document.getElementById('to-char-select').onclick = () => {
             playerName = document.getElementById('player-name-input').value.trim() || "Anónimo";
             document.getElementById('start-screen').style.display = 'none';
@@ -147,16 +146,103 @@
             spawn();
         };
 
-        // --- LÓGICA DE DIBUJO DEL JEFE TORTUGA HD ---
+        // --- ARTE HD DEL JUGADOR ---
+        function drawPlayer() {
+            ctx.save();
+            const time = Date.now() * 0.005;
+            if (invulTime > 0 && Math.floor(Date.now()/100)%2 === 0) ctx.globalAlpha = 0.3;
+            
+            ctx.shadowBlur = shieldTime > 0 ? 20 : 15; 
+            ctx.shadowColor = shieldTime > 0 ? "cyan" : (selectedCharacter === 'jellyfish' ? "#ff00ff" : (selectedCharacter === 'crab' ? "#ff3300" : "#a000ff"));
+
+            if (selectedCharacter === 'jellyfish') {
+                ctx.strokeStyle = shieldTime > 0 ? "cyan" : "rgba(230, 180, 255, 0.8)";
+                ctx.lineWidth = 3.5;
+                for(let i=0; i<5; i++) {
+                    ctx.beginPath(); ctx.moveTo(player.x - 16 + i*8, player.y + 12);
+                    for(let j=0; j<4; j++) {
+                        let ox = Math.sin(time + i*0.8 + j*0.5) * 10;
+                        ctx.quadraticCurveTo(player.x-16+i*8+ox, player.y+20+j*10, player.x-16+i*8, player.y+35+j*10);
+                    }
+                    ctx.stroke();
+                }
+                const grad = ctx.createRadialGradient(player.x, player.y-5, 5, player.x, player.y, player.r);
+                grad.addColorStop(0, shieldTime > 0 ? "#fff" : "#ffb3e6"); grad.addColorStop(1, shieldTime > 0 ? "#00ffff" : "#7700ee");
+                ctx.fillStyle = grad;
+                ctx.beginPath(); ctx.arc(player.x, player.y, player.r, Math.PI, 0);
+                ctx.lineTo(player.x+player.r, player.y+15); ctx.quadraticCurveTo(player.x, player.y+25, player.x-player.r, player.y+15); ctx.fill();
+            } 
+            else if (selectedCharacter === 'crab') {
+                ctx.translate(player.x, player.y);
+                ctx.fillStyle = "#e63900";
+                ctx.beginPath(); ctx.ellipse(0, 0, 25, 18, 0, 0, 7); ctx.fill();
+                const legM = Math.sin(time*3) * 5;
+                ctx.strokeStyle = "#e63900"; ctx.lineWidth = 4;
+                for(let i=0; i<3; i++) {
+                    ctx.beginPath(); ctx.moveTo(-15, 5-i*5); ctx.lineTo(-28-legM, 10-i*5); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(15, 5-i*5); ctx.lineTo(28+legM, 10-i*5); ctx.stroke();
+                }
+                ctx.fillStyle = "white"; ctx.beginPath(); ctx.arc(-8,-10,5,0,7); ctx.arc(8,-10,5,0,7); ctx.fill();
+            }
+            else if (selectedCharacter === 'octopus') {
+                ctx.fillStyle = "#a000ff";
+                for(let i=0; i<8; i++) {
+                    const ang = (i / 7) * Math.PI + time * 0.5;
+                    ctx.beginPath();
+                    ctx.moveTo(player.x + Math.cos(ang)*10, player.y);
+                    ctx.quadraticCurveTo(player.x + Math.cos(ang)*30, player.y + 40 + Math.sin(time+i)*10, player.x + Math.cos(ang)*5, player.y + 10);
+                    ctx.strokeStyle = "#7000cc"; ctx.lineWidth = 6; ctx.stroke();
+                }
+                ctx.beginPath(); ctx.ellipse(player.x, player.y, 25, 28, 0, 0, 7); ctx.fill();
+                ctx.fillStyle = "white"; ctx.beginPath(); ctx.arc(player.x-10, player.y, 6, 0, 7); ctx.arc(player.x+10, player.y, 6, 0, 7); ctx.fill();
+                ctx.fillStyle = "black"; ctx.beginPath(); ctx.arc(player.x-10, player.y, 3, 0, 7); ctx.arc(player.x+10, player.y, 3, 0, 7); ctx.fill();
+            }
+
+            if(selectedCharacter === 'jellyfish') {
+                ctx.fillStyle = "white"; ctx.beginPath(); ctx.arc(player.x-8, player.y-5, 5, 0, 7); ctx.arc(player.x+8, player.y-5, 5, 0, 7); ctx.fill();
+                ctx.fillStyle = "black"; ctx.beginPath(); ctx.arc(player.x-8, player.y-5, 2.5, 0, 7); ctx.arc(player.x+8, player.y-5, 2.5, 0, 7); ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        // --- ARTE HD DEL CANGREJO POWER-UP ---
+        function drawPowerupCrab(o) {
+            ctx.save(); ctx.translate(o.x, o.y);
+            const time = Date.now() * 0.015;
+            ctx.fillStyle = "#e63900"; 
+            ctx.beginPath(); ctx.ellipse(0, 0, 22, 16, 0, 0, 7); ctx.fill();
+            ctx.strokeStyle = "#802000"; ctx.lineWidth = 1; ctx.stroke();
+            const legM = Math.sin(time) * 5;
+            ctx.strokeStyle = "#e63900"; ctx.lineWidth = 3;
+            for(let i=0; i<3; i++) {
+                ctx.beginPath(); ctx.moveTo(-15, 5-i*5); ctx.lineTo(-25-legM, 10-i*5); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(15, 5-i*5); ctx.lineTo(25+legM, 10-i*5); ctx.stroke();
+            }
+            const clawM = Math.sin(Date.now()*0.01)*8;
+            ctx.beginPath(); ctx.arc(-18+clawM, -10, 8, 0, 7); ctx.fill();
+            ctx.beginPath(); ctx.arc(18-clawM, -10, 8, 0, 7); ctx.fill();
+            ctx.restore();
+        }
+
+        // --- ARTE HD DE LA BURBUJA ---
+        function drawBubble(o) {
+            ctx.save();
+            const g = ctx.createRadialGradient(o.x - o.size/3, o.y - o.size/3, 1, o.x, o.y, o.size);
+            g.addColorStop(0, "rgba(255, 255, 255, 0.5)"); g.addColorStop(0.8, "rgba(100, 200, 255, 0.1)"); g.addColorStop(1, "rgba(255, 255, 255, 0.7)");
+            ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, 7);
+            ctx.fillStyle = g; ctx.fill();
+            ctx.strokeStyle = "rgba(255,255,255,0.4)"; ctx.lineWidth = 1; ctx.stroke();
+            ctx.beginPath(); ctx.arc(o.x - o.size/3, o.y - o.size/3, o.size/4, 0, 7); ctx.fillStyle = "rgba(255,255,255,0.3)"; ctx.fill();
+            ctx.restore();
+        }
+
+        // --- ARTE HD DE LA TORTUGA JEFE ---
         function drawTurtle() {
             const time = Date.now() * 0.002;
             ctx.save();
             ctx.translate(bossX, 100);
-            
-            // Sombra proyectada
             ctx.shadowBlur = 30; ctx.shadowColor = "rgba(0,0,0,0.6)";
 
-            // Aletas (Movimiento suave)
             ctx.fillStyle = "#2d5a27";
             for(let i=0; i<4; i++) {
                 ctx.save();
@@ -168,40 +254,24 @@
                 ctx.restore();
             }
 
-            // Caparazón HD
             const grad = ctx.createRadialGradient(0, 0, 10, 0, 0, 70);
             grad.addColorStop(0, "#4a9c43"); grad.addColorStop(1, "#1d3d19");
             ctx.fillStyle = grad;
-            ctx.beginPath();
-            ctx.ellipse(0, 0, 75, 55, 0, 0, Math.PI*2);
-            ctx.fill();
+            ctx.beginPath(); ctx.ellipse(0, 0, 75, 55, 0, 0, Math.PI*2); ctx.fill();
             ctx.strokeStyle = "#0d1f0b"; ctx.lineWidth = 3; ctx.stroke();
 
-            // Patrón del caparazón (Hexágonos/Placas)
             ctx.strokeStyle = "rgba(0,0,0,0.2)"; ctx.lineWidth = 2;
             for(let j=-2; j<=2; j++) {
                 for(let k=-2; k<=2; k++) {
-                    ctx.beginPath();
-                    ctx.arc(j*25, k*20, 12, 0, Math.PI*2);
-                    ctx.stroke();
+                    ctx.beginPath(); ctx.arc(j*25, k*20, 12, 0, Math.PI*2); ctx.stroke();
                 }
             }
 
-            // Cuello y Cabeza
             ctx.fillStyle = "#66cc5c";
-            ctx.beginPath();
-            ctx.ellipse(0, -65 + Math.sin(time)*5, 25, 30, 0, 0, Math.PI*2);
-            ctx.fill();
-            ctx.stroke();
+            ctx.beginPath(); ctx.ellipse(0, -65 + Math.sin(time)*5, 25, 30, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
 
-            // Ojos Rojos Brillantes
-            ctx.fillStyle = "red";
-            ctx.shadowBlur = 15; ctx.shadowColor = "red";
-            ctx.beginPath();
-            ctx.arc(-8, -75 + Math.sin(time)*5, 4, 0, Math.PI*2);
-            ctx.arc(8, -75 + Math.sin(time)*5, 4, 0, Math.PI*2);
-            ctx.fill();
-
+            ctx.fillStyle = "red"; ctx.shadowBlur = 15; ctx.shadowColor = "red";
+            ctx.beginPath(); ctx.arc(-8, -75 + Math.sin(time)*5, 4, 0, Math.PI*2); ctx.arc(8, -75 + Math.sin(time)*5, 4, 0, Math.PI*2); ctx.fill();
             ctx.restore();
         }
 
@@ -218,15 +288,13 @@
         function update() {
             if(!gameStarted || gameOver) return;
             
-            // Límites del jugador
             if (player.x < player.r) player.x = player.r;
             if (player.x > width - player.r) player.x = width - player.r;
-            if (player.y < 180) player.y = 180; // Zona segura para el jefe HD
+            if (player.y < 180) player.y = 180; 
             if (player.y > height - player.r) player.y = height - player.r;
 
             level = Math.floor(score/40) + 1;
             
-            // Frenesí de disparo
             if (level % 5 === 0 && level !== lastShootingLevel) {
                 lastShootingLevel = level; shootingTime = 10000;
                 document.getElementById('event-alert').innerText = "¡FRENESÍ DE DISPARO!";
@@ -242,7 +310,6 @@
                 }
             }
 
-            // Jefe
             if (score >= nextBossAt && !isBossMode) { 
                 isBossMode = true; bossShots = 10 + level; 
                 document.getElementById('event-alert').innerText = "¡JEFE TORTUGA AL ACECHO! 🐢";
@@ -271,7 +338,6 @@
                         if (o.type === 'star') { score += 15; }
                         else if (o.type === 'diamond') {
                             userData.diamonds++;
-                            // NUEVO AJUSTE: Solo 10 diamantes para una copa
                             if (userData.diamonds >= 10) {
                                 userData.diamonds = 0; userData.trophies++;
                             }
@@ -288,7 +354,6 @@
                 }
             }
 
-            // Colisiones de disparos
             for (let i = objects.length - 1; i >= 0; i--) {
                 let pb = objects[i];
                 if (pb.type === 'playerBullet' || pb.type === 'shrapnel') {
@@ -308,29 +373,60 @@
                     }
                 }
             }
-            document.getElementById('score').innerText = score; document.getElementById('hp-fill').style.width = (hp/maxHp*100) + '%';
+
+            // CORRECCIÓN DEL UI: Actualizamos Puntuación Y Nivel correctamente
+            document.getElementById('score').innerText = score; 
+            document.getElementById('level').innerText = level; // ¡Arreglado el texto del nivel!
+            document.getElementById('hp-fill').style.width = (hp/maxHp*100) + '%';
         }
 
         function loop() {
             ctx.fillStyle = isBossMode ? "#1a0505" : "#000511"; ctx.fillRect(0,0,width,height);
             particles.forEach(p => { p.y += p.v; if(p.y > height) p.y = 0; ctx.fillStyle = "rgba(255,255,255,0.15)"; ctx.beginPath(); ctx.arc(p.x, p.y, p.s, 0, 7); ctx.fill(); });
             if(isBossMode) drawTurtle();
+            
             objects.forEach(o => {
                 if(o.type === 'bubble') {
-                    ctx.save(); ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, 7); ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.stroke(); ctx.restore();
+                    drawBubble(o); 
+                } else if(o.type === 'crab') {
+                    drawPowerupCrab(o); // CANGREJO HD RESTAURADO
                 } else if(o.type === 'diamond') {
-                    ctx.fillStyle = "#00ffff"; ctx.beginPath(); ctx.moveTo(o.x, o.y-10); ctx.lineTo(o.x+10, o.y); ctx.lineTo(o.x, o.y+10); ctx.lineTo(o.x-10, o.y); ctx.fill();
+                    ctx.fillStyle = "#00ffff"; ctx.shadowBlur = 10; ctx.shadowColor = "#00ffff";
+                    ctx.beginPath(); ctx.moveTo(o.x, o.y-10); ctx.lineTo(o.x+10, o.y); ctx.lineTo(o.x, o.y+10); ctx.lineTo(o.x-10, o.y); ctx.fill(); ctx.shadowBlur = 0;
+                } else if(o.type === 'star') {
+                    // ESTRELLA HD: 5 puntas reales
+                    ctx.save(); ctx.translate(o.x, o.y);
+                    ctx.fillStyle = "yellow"; ctx.shadowBlur = 15; ctx.shadowColor = "yellow";
+                    ctx.beginPath();
+                    for (let i = 0; i < 5; i++) {
+                        ctx.lineTo(Math.cos((18+i*72)/180*Math.PI)*o.size, -Math.sin((18+i*72)/180*Math.PI)*o.size);
+                        ctx.lineTo(Math.cos((54+i*72)/180*Math.PI)*(o.size/2.5), -Math.sin((54+i*72)/180*Math.PI)*(o.size/2.5));
+                    }
+                    ctx.closePath(); ctx.fill(); ctx.restore();
+                } else if(o.type === 'shield') {
+                    // ESCUDO HD: Aura brillante
+                    ctx.fillStyle = "#00ffff"; ctx.shadowBlur = 20; ctx.shadowColor = "#00ffff";
+                    ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, 7); ctx.fill(); 
+                    ctx.fillStyle = "white"; ctx.beginPath(); ctx.arc(o.x, o.y, o.size/2, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
+                } else if(o.type === 'bomb') {
+                    // BOMBA HD: Núcleo palpitante
+                    ctx.fillStyle = "#333"; ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, 7); ctx.fill();
+                    const pulse = Math.abs(Math.sin(Date.now() * (0.01 + (120 - o.t)*0.0002)));
+                    ctx.fillStyle = `rgba(255, 0, 0, ${pulse})`; ctx.shadowBlur = 10; ctx.shadowColor = "red";
+                    ctx.beginPath(); ctx.arc(o.x, o.y, o.size/2, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
                 } else if(o.type === 'playerBullet' || o.type === 'shrapnel') {
-                    ctx.fillStyle = o.type === 'shrapnel' ? "#ffaa00" : "#00ffff"; ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, 7); ctx.fill();
-                } else {
-                    ctx.fillStyle = o.type === 'star' ? 'yellow' : (o.type === 'shield' ? '#00ffff' : (o.type === 'bullet' ? 'red' : '#444'));
-                    ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, 7); ctx.fill();
+                    ctx.fillStyle = o.type === 'shrapnel' ? "#ffaa00" : "#00ffff"; 
+                    ctx.shadowBlur = 5; ctx.shadowColor = "#fff";
+                    ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
+                } else if(o.type === 'bullet') {
+                    // BALA ENEMIGA
+                    ctx.fillStyle = "red"; ctx.shadowBlur = 5; ctx.shadowColor = "red";
+                    ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
                 }
             });
             drawPlayer(); update(); requestAnimationFrame(loop);
         }
 
-        // --- FUNCIONES EXTRA ---
         function spawnBossShot() {
             if (!isBossMode || gameOver) return;
             let angle = Math.atan2(player.y - 130, player.x - bossX);
@@ -340,17 +436,9 @@
             else { setTimeout(() => { isBossMode = false; nextBossAt += 100; document.getElementById('event-alert').style.display = 'none'; level++; spawn(); }, 3000); }
         }
 
-        function drawPlayer() {
-            ctx.save();
-            if (invulTime > 0 && Math.floor(Date.now()/100)%2 === 0) ctx.globalAlpha = 0.3;
-            ctx.translate(player.x, player.y);
-            ctx.fillStyle = selectedCharacter === 'jellyfish' ? "#ff00ff" : (selectedCharacter === 'crab' ? "#ff3300" : "#a000ff");
-            ctx.beginPath(); ctx.arc(0, 0, player.r, 0, Math.PI*2); ctx.fill();
-            ctx.restore();
-        }
-
         document.getElementById('play-btn').onclick = startGame;
         window.addEventListener('touchmove', (e) => { player.x = e.touches[0].clientX; player.y = e.touches[0].clientY; }, {passive: false});
+        window.addEventListener('mousemove', (e) => { if(gameStarted) { player.x = e.clientX; player.y = e.clientY; } });
         loop();
     </script>
 </body>
