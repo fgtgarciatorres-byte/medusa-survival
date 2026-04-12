@@ -117,61 +117,71 @@
         let allProfiles = {};
         let userData = { bestScore: 0, diamonds: 0, trophies: 0 }; 
 
-        // Sistema a prueba de fallos para LocalStorage
+        // CARGA SEGURA DE PERFILES
         try {
-            allProfiles = JSON.parse(localStorage.getItem('jellyProfilesV3')) || {};
-        } catch(e) { console.error("Error cargando perfiles"); }
+            const saved = localStorage.getItem('jellyProfilesV3');
+            if (saved) allProfiles = JSON.parse(saved);
+        } catch(e) { console.warn("Aviso: Memoria local vacía o no disponible."); }
 
         function saveProfile() {
             try {
                 allProfiles[playerName] = userData;
                 localStorage.setItem('jellyProfilesV3', JSON.stringify(allProfiles));
-            } catch(e) { console.error("Error guardando perfil"); }
+            } catch(e) { console.warn("No se pudo guardar la partida."); }
         }
 
         const player = { x: width/2, y: height/2, r: 25 };
         const objects = [];
-        const particles = Array.from({length: 30}, () => ({x: Math.random()*width, y: Math.random()*height, s: Math.random()*2.5, v: Math.random()*0.5+0.1}));
+        const particles = Array.from({length: 30}, () => ({x: Math.random()*width, y: Math.random()*height, s: Math.max(0.1, Math.random()*2.5), v: Math.max(0.1, Math.random()*0.5+0.1)}));
 
         const updateGlobalUI = () => {
-            document.getElementById('inv-diamonds').innerText = userData.diamonds;
-            document.getElementById('inv-trophies').innerText = userData.trophies;
-            if(userData.bestScore >= 150) document.getElementById('char-crab').classList.remove('locked');
-            if(userData.bestScore >= 250) document.getElementById('char-octopus').classList.remove('locked');
+            try {
+                document.getElementById('inv-diamonds').innerText = userData.diamonds || 0;
+                document.getElementById('inv-trophies').innerText = userData.trophies || 0;
+                if((userData.bestScore || 0) >= 150) document.getElementById('char-crab').classList.remove('locked');
+                if((userData.bestScore || 0) >= 250) document.getElementById('char-octopus').classList.remove('locked');
+            } catch(e) {}
         };
 
-        // --- NAVEGACIÓN ---
+        // EVENTOS DE NAVEGACIÓN
         document.getElementById('to-char-select').onclick = () => {
-            let inputName = document.getElementById('player-name-input').value.trim().toUpperCase().substring(0,3);
-            if(inputName.length === 0) inputName = "AAA";
-            playerName = inputName;
+            try {
+                let inputName = document.getElementById('player-name-input').value.trim().toUpperCase().substring(0,3);
+                if(inputName.length === 0) inputName = "AAA";
+                playerName = inputName;
 
-            if(!allProfiles[playerName]) {
-                allProfiles[playerName] = { bestScore: 0, diamonds: 0, trophies: 0 };
-            }
-            userData = allProfiles[playerName];
+                if(!allProfiles[playerName]) {
+                    allProfiles[playerName] = { bestScore: 0, diamonds: 0, trophies: 0 };
+                }
+                
+                // Sanitización estricta por si el perfil es antiguo
+                userData = allProfiles[playerName];
+                userData.bestScore = userData.bestScore || 0;
+                userData.diamonds = userData.diamonds || 0;
+                userData.trophies = userData.trophies || 0;
 
-            updateGlobalUI();
-            
-            document.getElementById('start-screen').style.display = 'none';
-            document.getElementById('char-select-screen').style.display = 'flex';
-            document.getElementById('inventory-bar').style.display = 'flex'; 
+                updateGlobalUI();
+                
+                document.getElementById('start-screen').style.display = 'none';
+                document.getElementById('char-select-screen').style.display = 'flex';
+                document.getElementById('inventory-bar').style.display = 'flex'; 
+            } catch (err) { console.error("Error en pantalla de inicio:", err); }
         };
 
-        // Corregido: Ya no usamos "event" para evitar crasheos en ciertos navegadores
         function selectChar(type, req) {
-            if(userData.bestScore < req) return; 
+            if((userData.bestScore || 0) < req) return; 
             selectedCharacter = type;
             document.querySelectorAll('.char-card').forEach(c => c.classList.remove('selected'));
             document.getElementById('char-' + type).classList.add('selected');
         }
 
         const startGame = () => {
-            // Inicialización de audio envuelta en Try/Catch para evitar congelaciones
             try {
-                if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                if(audioCtx.state === 'suspended') audioCtx.resume();
-            } catch(e) { console.warn("Audio no soportado o bloqueado"); }
+                if (typeof window.AudioContext !== "undefined" || typeof window.webkitAudioContext !== "undefined") {
+                    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    if(audioCtx.state === 'suspended') audioCtx.resume().catch(()=>{});
+                }
+            } catch(e) { console.warn("Audio desactivado"); }
             
             if (userData.trophies > 0) {
                 userData.trophies--; maxHp = 6;
@@ -180,7 +190,8 @@
                 saveProfile(); 
                 updateGlobalUI();
             } else { maxHp = 3; }
-            hp = maxHp; gameStarted = true;
+            hp = maxHp; 
+            gameStarted = true;
             document.getElementById('char-select-screen').style.display = 'none';
             document.getElementById('ui').style.display = 'flex';
             spawn();
@@ -188,7 +199,7 @@
 
         function finishGame() {
             gameOver = true;
-            if(score > userData.bestScore) userData.bestScore = score;
+            if(score > (userData.bestScore || 0)) userData.bestScore = score;
             saveProfile(); 
 
             document.getElementById('game-over-screen').style.display = 'flex';
@@ -210,12 +221,11 @@
             } catch(e){}
         }
 
-        // --- ARTE HD DEL JUGADOR ---
+        // DIBUJO DE SPRITES
         function drawPlayer() {
             ctx.save();
             const time = Date.now() * 0.005;
             if (invulTime > 0 && Math.floor(Date.now()/100)%2 === 0) ctx.globalAlpha = 0.3;
-            
             ctx.shadowBlur = shieldTime > 0 ? 20 : 15; 
             ctx.shadowColor = shieldTime > 0 ? "cyan" : (selectedCharacter === 'jellyfish' ? "#ff00ff" : (selectedCharacter === 'crab' ? "#ff3300" : "#a000ff"));
 
@@ -271,8 +281,7 @@
         function drawPowerupCrab(o) {
             ctx.save(); ctx.translate(o.x, o.y);
             const time = Date.now() * 0.015;
-            ctx.fillStyle = "#e63900"; 
-            ctx.beginPath(); ctx.ellipse(0, 0, 22, 16, 0, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = "#e63900"; ctx.beginPath(); ctx.ellipse(0, 0, 22, 16, 0, 0, Math.PI*2); ctx.fill();
             ctx.strokeStyle = "#802000"; ctx.lineWidth = 1; ctx.stroke();
             const legM = Math.sin(time) * 5;
             ctx.strokeStyle = "#e63900"; ctx.lineWidth = 3;
@@ -290,8 +299,7 @@
             ctx.save();
             const g = ctx.createRadialGradient(o.x - o.size/3, o.y - o.size/3, 1, o.x, o.y, o.size);
             g.addColorStop(0, "rgba(255, 255, 255, 0.5)"); g.addColorStop(0.8, "rgba(100, 200, 255, 0.1)"); g.addColorStop(1, "rgba(255, 255, 255, 0.7)");
-            ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, Math.PI*2);
-            ctx.fillStyle = g; ctx.fill();
+            ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, Math.PI*2); ctx.fillStyle = g; ctx.fill();
             ctx.strokeStyle = "rgba(255,255,255,0.4)"; ctx.lineWidth = 1; ctx.stroke();
             ctx.beginPath(); ctx.arc(o.x - o.size/3, o.y - o.size/3, o.size/4, 0, Math.PI*2); ctx.fillStyle = "rgba(255,255,255,0.3)"; ctx.fill();
             ctx.restore();
@@ -305,8 +313,7 @@
             ctx.fillStyle = "#2d5a27";
             for(let i=0; i<4; i++) {
                 ctx.save();
-                const angle = (i < 2 ? -1 : 1) * 0.4 + Math.sin(time + i) * 0.2;
-                ctx.rotate(angle);
+                ctx.rotate((i < 2 ? -1 : 1) * 0.4 + Math.sin(time + i) * 0.2);
                 ctx.beginPath(); ctx.ellipse(i < 2 ? -50 : 50, i % 2 === 0 ? -20 : 20, 35, 15, i < 2 ? -0.5 : 0.5, 0, Math.PI*2); ctx.fill();
                 ctx.restore();
             }
@@ -324,7 +331,6 @@
 
             ctx.fillStyle = "#66cc5c";
             ctx.beginPath(); ctx.ellipse(0, -65 + Math.sin(time)*5, 25, 30, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
-
             ctx.fillStyle = "red"; ctx.shadowBlur = 15; ctx.shadowColor = "red";
             ctx.beginPath(); ctx.arc(-8, -75 + Math.sin(time)*5, 4, 0, Math.PI*2); ctx.arc(8, -75 + Math.sin(time)*5, 4, 0, Math.PI*2); ctx.fill();
             ctx.restore();
@@ -339,6 +345,7 @@
             setTimeout(spawn, Math.max(300, 1100 - (level * 70)));
         }
 
+        // LÓGICA PRINCIPAL (Ahora protegida con Try/Catch)
         function update() {
             if(!gameStarted || gameOver) return;
             
@@ -433,56 +440,59 @@
             document.getElementById('hp-fill').style.width = (hp/maxHp*100) + '%';
         }
 
+        // BUCLE A PRUEBA DE FALLOS
         function loop() {
-            ctx.fillStyle = isBossMode ? "#1a0505" : "#000511"; ctx.fillRect(0,0,width,height);
-            particles.forEach(p => { p.y += p.v; if(p.y > height) p.y = 0; ctx.fillStyle = "rgba(255,255,255,0.15)"; ctx.beginPath(); ctx.arc(p.x, p.y, p.s, 0, Math.PI*2); ctx.fill(); });
-            
-            if(isBossMode) drawTurtle();
-            
-            objects.forEach(o => {
-                if(o.type === 'bubble') {
-                    drawBubble(o); 
-                } else if(o.type === 'crab') {
-                    drawPowerupCrab(o);
-                } else if(o.type === 'diamond') {
-                    ctx.fillStyle = "#00ffff"; ctx.shadowBlur = 10; ctx.shadowColor = "#00ffff";
-                    ctx.beginPath(); ctx.moveTo(o.x, o.y-10); ctx.lineTo(o.x+10, o.y); ctx.lineTo(o.x, o.y+10); ctx.lineTo(o.x-10, o.y); ctx.fill(); ctx.shadowBlur = 0;
-                } else if(o.type === 'star') {
-                    ctx.save(); ctx.translate(o.x, o.y);
-                    ctx.fillStyle = "yellow"; ctx.shadowBlur = 15; ctx.shadowColor = "yellow";
-                    ctx.beginPath();
-                    for (let i = 0; i < 5; i++) {
-                        ctx.lineTo(Math.cos((18+i*72)/180*Math.PI)*o.size, -Math.sin((18+i*72)/180*Math.PI)*o.size);
-                        ctx.lineTo(Math.cos((54+i*72)/180*Math.PI)*(o.size/2.5), -Math.sin((54+i*72)/180*Math.PI)*(o.size/2.5));
+            try {
+                ctx.fillStyle = isBossMode ? "#1a0505" : "#000511"; ctx.fillRect(0,0,width,height);
+                particles.forEach(p => { p.y += p.v; if(p.y > height) p.y = 0; ctx.fillStyle = "rgba(255,255,255,0.15)"; ctx.beginPath(); ctx.arc(p.x, p.y, p.s, 0, Math.PI*2); ctx.fill(); });
+                
+                if(isBossMode) drawTurtle();
+                
+                objects.forEach(o => {
+                    if(o.type === 'bubble') drawBubble(o); 
+                    else if(o.type === 'crab') drawPowerupCrab(o);
+                    else if(o.type === 'diamond') {
+                        ctx.fillStyle = "#00ffff"; ctx.shadowBlur = 10; ctx.shadowColor = "#00ffff";
+                        ctx.beginPath(); ctx.moveTo(o.x, o.y-10); ctx.lineTo(o.x+10, o.y); ctx.lineTo(o.x, o.y+10); ctx.lineTo(o.x-10, o.y); ctx.fill(); ctx.shadowBlur = 0;
+                    } else if(o.type === 'star') {
+                        ctx.save(); ctx.translate(o.x, o.y); ctx.fillStyle = "yellow"; ctx.shadowBlur = 15; ctx.shadowColor = "yellow";
+                        ctx.beginPath();
+                        for (let i = 0; i < 5; i++) {
+                            ctx.lineTo(Math.cos((18+i*72)/180*Math.PI)*o.size, -Math.sin((18+i*72)/180*Math.PI)*o.size);
+                            ctx.lineTo(Math.cos((54+i*72)/180*Math.PI)*(o.size/2.5), -Math.sin((54+i*72)/180*Math.PI)*(o.size/2.5));
+                        }
+                        ctx.closePath(); ctx.fill(); ctx.restore();
+                    } else if(o.type === 'shield') {
+                        ctx.fillStyle = "#00ffff"; ctx.shadowBlur = 20; ctx.shadowColor = "#00ffff";
+                        ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, Math.PI*2); ctx.fill(); 
+                        ctx.fillStyle = "white"; ctx.beginPath(); ctx.arc(o.x, o.y, o.size/2, 0, Math.PI*2); ctx.fill(); ctx.shadowBlur = 0;
+                    } else if(o.type === 'bomb') {
+                        ctx.fillStyle = "#333"; ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, Math.PI*2); ctx.fill();
+                        const pulse = Math.abs(Math.sin(Date.now() * (0.01 + (120 - o.t)*0.0002)));
+                        ctx.fillStyle = `rgba(255, 0, 0, ${pulse})`; ctx.shadowBlur = 10; ctx.shadowColor = "red";
+                        ctx.beginPath(); ctx.arc(o.x, o.y, o.size/2, 0, Math.PI*2); ctx.fill(); ctx.shadowBlur = 0;
+                    } else if(o.type === 'playerBullet' || o.type === 'shrapnel') {
+                        ctx.fillStyle = o.type === 'shrapnel' ? "#ffaa00" : "#00ffff"; 
+                        ctx.shadowBlur = 5; ctx.shadowColor = "#fff";
+                        ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, Math.PI*2); ctx.fill(); ctx.shadowBlur = 0;
+                    } else if(o.type === 'bullet') {
+                        ctx.fillStyle = "red"; ctx.shadowBlur = 5; ctx.shadowColor = "red";
+                        ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, Math.PI*2); ctx.fill(); ctx.shadowBlur = 0;
                     }
-                    ctx.closePath(); ctx.fill(); ctx.restore();
-                } else if(o.type === 'shield') {
-                    ctx.fillStyle = "#00ffff"; ctx.shadowBlur = 20; ctx.shadowColor = "#00ffff";
-                    ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, Math.PI*2); ctx.fill(); 
-                    ctx.fillStyle = "white"; ctx.beginPath(); ctx.arc(o.x, o.y, o.size/2, 0, Math.PI*2); ctx.fill(); ctx.shadowBlur = 0;
-                } else if(o.type === 'bomb') {
-                    ctx.fillStyle = "#333"; ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, Math.PI*2); ctx.fill();
-                    const pulse = Math.abs(Math.sin(Date.now() * (0.01 + (120 - o.t)*0.0002)));
-                    ctx.fillStyle = `rgba(255, 0, 0, ${pulse})`; ctx.shadowBlur = 10; ctx.shadowColor = "red";
-                    ctx.beginPath(); ctx.arc(o.x, o.y, o.size/2, 0, Math.PI*2); ctx.fill(); ctx.shadowBlur = 0;
-                } else if(o.type === 'playerBullet' || o.type === 'shrapnel') {
-                    ctx.fillStyle = o.type === 'shrapnel' ? "#ffaa00" : "#00ffff"; 
-                    ctx.shadowBlur = 5; ctx.shadowColor = "#fff";
-                    ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, Math.PI*2); ctx.fill(); ctx.shadowBlur = 0;
-                } else if(o.type === 'bullet') {
-                    ctx.fillStyle = "red"; ctx.shadowBlur = 5; ctx.shadowColor = "red";
-                    ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, Math.PI*2); ctx.fill(); ctx.shadowBlur = 0;
+                });
+                
+                if(!gameStarted) {
+                    player.x = width / 2;
+                    player.y = height * 0.7 + Math.sin(Date.now()*0.002)*15;
                 }
-            });
-            
-            // Animación flotante de fondo si el juego no ha empezado
-            if(!gameStarted) {
-                player.x = width / 2;
-                player.y = height * 0.7 + Math.sin(Date.now()*0.002)*15;
+                
+                drawPlayer(); 
+                if(gameStarted) update(); 
+
+            } catch(fatalError) {
+                console.warn("Recuperación de error en frame:", fatalError);
             }
-            
-            drawPlayer(); 
-            if(gameStarted) update(); 
+            // El bucle continuará pase lo que pase
             requestAnimationFrame(loop);
         }
 
@@ -499,7 +509,6 @@
         window.addEventListener('touchmove', (e) => { if(gameStarted) { player.x = e.touches[0].clientX; player.y = e.touches[0].clientY; } }, {passive: false});
         window.addEventListener('mousemove', (e) => { if(gameStarted) { player.x = e.clientX; player.y = e.clientY; } });
         
-        // Iniciar el bucle de renderizado inmediatamente
         loop();
     </script>
 </body>
