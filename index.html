@@ -12,7 +12,7 @@
         
         #ui { position: fixed; top: 20px; width: 100%; display: none; justify-content: space-around; align-items: center; color: #00d4ff; font-weight: bold; font-size: 18px; z-index: 500; pointer-events: none; text-shadow: 0 0 10px #00d4ff; }
         
-        #inventory-bar { position: fixed; bottom: 0; width: 100%; background: rgba(0,0,0,0.7); display: flex; justify-content: center; gap: 30px; padding: 10px 0; border-top: 2px solid #ff00ff; z-index: 1000; font-size: 16px; text-shadow: 0 0 5px black; }
+        #inventory-bar { position: fixed; bottom: 0; width: 100%; background: rgba(0,0,0,0.7); display: none; justify-content: center; gap: 30px; padding: 10px 0; border-top: 2px solid #ff00ff; z-index: 1000; font-size: 16px; text-shadow: 0 0 5px black; }
         .inv-item { display: flex; align-items: center; gap: 8px; }
 
         .hp-bar-container { border: 2px solid white; border-radius: 10px; padding: 2px; transition: border-color 0.3s; }
@@ -21,7 +21,9 @@
         #hp-fill { width: 100%; height: 100%; background: linear-gradient(90deg, #ff3300, #ff6600); transition: width 0.3s, background 0.3s; }
         
         button { padding: 15px 30px; background: #ff00ff; color: white; font-size: 18px; font-weight: bold; border: none; border-radius: 50px; box-shadow: 0 0 15px #ff00ff; cursor: pointer; margin: 10px; transition: 0.2s; }
-        input { padding: 12px; border-radius: 10px; border: 2px solid #00d4ff; background: rgba(0,0,0,0.6); color: white; font-size: 18px; text-align: center; margin: 15px 0; width: 80%; max-width: 300px; }
+        
+        /* Input estilo Arcade: Solo mayúsculas, centrado y grande */
+        input { padding: 12px; border-radius: 10px; border: 2px solid #00d4ff; background: rgba(0,0,0,0.6); color: yellow; font-size: 24px; font-weight: bold; text-align: center; margin: 15px 0; width: 120px; text-transform: uppercase; letter-spacing: 5px; }
 
         .char-grid { display: flex; gap: 15px; margin: 20px 0; flex-wrap: wrap; justify-content: center; }
         .char-card { background: rgba(255,255,255,0.05); border: 2px solid #444; padding: 15px; border-radius: 15px; width: 100px; cursor: pointer; }
@@ -31,6 +33,9 @@
         
         #event-alert { position: fixed; top: 100px; width: 100%; text-align: center; color: #ff3300; font-size: 28px; font-weight: 900; display: none; text-shadow: 0 0 20px red; z-index: 400; animation: blink 0.5s infinite; }
         @keyframes blink { 0%, 100% { opacity: 0.2; } 50% { opacity: 1; } }
+
+        /* Panel de perfil final */
+        .profile-panel { background: rgba(0,212,255,0.1); border: 2px solid #00d4ff; padding: 20px; border-radius: 15px; margin: 15px 0; min-width: 250px; text-align: left; }
     </style>
 </head>
 <body>
@@ -55,9 +60,10 @@
 
     <div id="start-screen" class="overlay">
         <h1 style="color:#ff00ff; font-size:40px; margin:0; text-shadow: 0 0 20px #ff00ff;">🪼 JELLYFISH</h1>
-        <p>Introduce tu nombre para continuar</p>
-        <input type="text" id="player-name-input" placeholder="Tu nombre..." maxlength="12">
-        <button id="to-char-select">CONTINUAR</button>
+        <p style="margin-bottom: 5px;">INICIALES DEL JUGADOR</p>
+        <p style="font-size: 12px; opacity: 0.7; margin-top: 0;">(Máximo 3 letras)</p>
+        <input type="text" id="player-name-input" placeholder="AAA" maxlength="3">
+        <button id="to-char-select">ACCEDER</button>
     </div>
 
     <div id="char-select-screen" class="overlay" style="display:none;">
@@ -81,8 +87,19 @@
 
     <div id="game-over-screen" class="overlay" style="display:none;">
         <h1 style="color:#ff3300; font-size:35px; margin:0;">¡FIN DEL VIAJE!</h1>
-        <p>Puntos: <span id="final-score" style="color:#00d4ff;">0</span></p>
-        <button onclick="location.reload()">REINTENTAR</button>
+        <p>Puntos de la partida: <span id="final-score" style="color:#00d4ff; font-size: 24px; font-weight: bold;">0</span></p>
+        
+        <div class="profile-panel">
+            <h2 style="margin: 0 0 15px 0; color: yellow; text-align: center; letter-spacing: 3px;">PERFIL: <span id="go-name">AAA</span></h2>
+            <div style="display: flex; justify-content: space-between; font-size: 18px; margin-bottom: 10px;">
+                <span>Récord:</span> <span id="go-best" style="color:#ff00ff; font-weight: bold;">0</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 18px;">
+                <span>Inventario:</span> <span>💎 <span id="go-diamonds">0</span> &nbsp;|&nbsp; 🏆 <span id="go-trophies">0</span></span>
+            </div>
+        </div>
+
+        <button onclick="location.reload()">VOLVER AL INICIO</button>
     </div>
 
     <canvas id="gameCanvas"></canvas>
@@ -99,11 +116,15 @@
         let isBossMode = false, bossX = width/2, bossDir = 3, bossShots = 0, nextBossAt = 50;
         let lastShootingLevel = 0, shootingTime = 0, lastShotFired = 0;
 
-        let playerName = "";
-        let selectedCharacter = 'jellyfish';
-        let userData = JSON.parse(localStorage.getItem('jellyUserData')) || { 
-            bestScore: 0, diamonds: 0, trophies: 0, history: [] 
-        };
+        // --- SISTEMA DE PERFILES ARCADE ---
+        let playerName = "AAA";
+        let allProfiles = JSON.parse(localStorage.getItem('jellyProfilesV2')) || {};
+        let userData = { bestScore: 0, diamonds: 0, trophies: 0 }; 
+
+        function saveProfile() {
+            allProfiles[playerName] = userData;
+            localStorage.setItem('jellyProfilesV2', JSON.stringify(allProfiles));
+        }
 
         const player = { x: width/2, y: height/2, r: 25 };
         const objects = [];
@@ -115,12 +136,25 @@
             if(userData.bestScore >= 150) document.getElementById('char-crab').classList.remove('locked');
             if(userData.bestScore >= 250) document.getElementById('char-octopus').classList.remove('locked');
         };
-        updateGlobalUI();
 
+        // --- NAVEGACIÓN Y ACCESO ---
         document.getElementById('to-char-select').onclick = () => {
-            playerName = document.getElementById('player-name-input').value.trim() || "Anónimo";
+            // Aseguramos 3 letras mayúsculas
+            let inputName = document.getElementById('player-name-input').value.trim().toUpperCase().substring(0,3);
+            if(inputName.length === 0) inputName = "AAA";
+            playerName = inputName;
+
+            // Cargar o crear perfil
+            if(!allProfiles[playerName]) {
+                allProfiles[playerName] = { bestScore: 0, diamonds: 0, trophies: 0 };
+            }
+            userData = allProfiles[playerName];
+
+            updateGlobalUI();
+            
             document.getElementById('start-screen').style.display = 'none';
             document.getElementById('char-select-screen').style.display = 'flex';
+            document.getElementById('inventory-bar').style.display = 'flex'; // Mostrar barra al acceder
         };
 
         function selectChar(type, req) {
@@ -137,7 +171,7 @@
                 userData.trophies--; maxHp = 6;
                 document.getElementById('hp-container').classList.add('extra-life');
                 document.getElementById('hp-fill').style.background = "linear-gradient(90deg, #ffd700, #ffaa00)";
-                localStorage.setItem('jellyUserData', JSON.stringify(userData));
+                saveProfile(); // Guardamos el consumo de copa
                 updateGlobalUI();
             } else { maxHp = 3; }
             hp = maxHp; gameStarted = true;
@@ -145,6 +179,21 @@
             document.getElementById('ui').style.display = 'flex';
             spawn();
         };
+
+        function finishGame() {
+            gameOver = true;
+            if(score > userData.bestScore) userData.bestScore = score;
+            saveProfile(); // Guardamos el progreso en el perfil
+
+            document.getElementById('game-over-screen').style.display = 'flex';
+            document.getElementById('final-score').innerText = score;
+            
+            // Llenar el panel de perfil
+            document.getElementById('go-name').innerText = playerName;
+            document.getElementById('go-best').innerText = userData.bestScore;
+            document.getElementById('go-diamonds').innerText = userData.diamonds;
+            document.getElementById('go-trophies').innerText = userData.trophies;
+        }
 
         // --- ARTE HD DEL JUGADOR ---
         function drawPlayer() {
@@ -275,7 +324,6 @@
             ctx.restore();
         }
 
-        // --- LÓGICA DE JUEGO ---
         function spawn() {
             if (gameOver || isBossMode || !gameStarted) return;
             const r = Math.random();
@@ -283,6 +331,17 @@
             let initVx = type === 'bubble' ? (Math.random() - 0.5) * 3 : (type === 'crab' ? 2.5 : 0);
             objects.push({ x: type === 'crab' ? -50 : Math.random()*width, y: type === 'crab' ? height*0.85 : -50, vx: initVx, vy: type === 'crab' ? 0 : 2.5 + level*0.4, size: 22, type, t: 120 });
             setTimeout(spawn, Math.max(300, 1100 - (level * 70)));
+        }
+
+        function playSnd(f, type='sine', d=0.15) {
+            if(!audioCtx) return;
+            try {
+                const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+                o.type = type; o.frequency.setValueAtTime(f, audioCtx.currentTime);
+                g.gain.setValueAtTime(0.04, audioCtx.currentTime);
+                o.connect(g); g.connect(audioCtx.destination);
+                o.start(); o.stop(audioCtx.currentTime + d);
+            } catch(e){}
         }
 
         function update() {
@@ -335,19 +394,19 @@
                 if (o.type !== 'playerBullet' && o.type !== 'shrapnel') {
                     let d = Math.hypot(player.x - o.x, player.y - o.y);
                     if (d < player.r + o.size - 6) {
-                        if (o.type === 'star') { score += 15; }
+                        if (o.type === 'star') { score += 15; playSnd(800); }
                         else if (o.type === 'diamond') {
                             userData.diamonds++;
                             if (userData.diamonds >= 10) {
-                                userData.diamonds = 0; userData.trophies++;
-                            }
-                            localStorage.setItem('jellyUserData', JSON.stringify(userData)); updateGlobalUI();
+                                userData.diamonds = 0; userData.trophies++; playSnd(1200, 'triangle', 0.5); 
+                            } else { playSnd(1500, 'sine', 0.1); }
+                            saveProfile(); updateGlobalUI();
                         }
-                        else if (o.type === 'shield') { shieldTime = 6000; }
-                        else if (o.type === 'crab') { hp = Math.min(maxHp, hp + 1); }
+                        else if (o.type === 'shield') { shieldTime = 6000; playSnd(1000); }
+                        else if (o.type === 'crab') { hp = Math.min(maxHp, hp + 1); playSnd(600); }
                         else if (shieldTime <= 0 && invulTime <= 0) {
-                            hp--; invulTime = 1500;
-                            if (hp <= 0) { gameOver = true; document.getElementById('game-over-screen').style.display = 'flex'; }
+                            hp--; invulTime = 1500; playSnd(80, 'sawtooth');
+                            if (hp <= 0) finishGame();
                         }
                         if (o.type !== 'bullet' || shieldTime > 0) { objects.splice(i, 1); i--; continue; }
                     } else if (o.y > height + 100) { if(o.type==='bubble') score++; objects.splice(i,1); i--; }
@@ -374,9 +433,8 @@
                 }
             }
 
-            // CORRECCIÓN DEL UI: Actualizamos Puntuación Y Nivel correctamente
             document.getElementById('score').innerText = score; 
-            document.getElementById('level').innerText = level; // ¡Arreglado el texto del nivel!
+            document.getElementById('level').innerText = level; 
             document.getElementById('hp-fill').style.width = (hp/maxHp*100) + '%';
         }
 
@@ -389,12 +447,11 @@
                 if(o.type === 'bubble') {
                     drawBubble(o); 
                 } else if(o.type === 'crab') {
-                    drawPowerupCrab(o); // CANGREJO HD RESTAURADO
+                    drawPowerupCrab(o);
                 } else if(o.type === 'diamond') {
                     ctx.fillStyle = "#00ffff"; ctx.shadowBlur = 10; ctx.shadowColor = "#00ffff";
                     ctx.beginPath(); ctx.moveTo(o.x, o.y-10); ctx.lineTo(o.x+10, o.y); ctx.lineTo(o.x, o.y+10); ctx.lineTo(o.x-10, o.y); ctx.fill(); ctx.shadowBlur = 0;
                 } else if(o.type === 'star') {
-                    // ESTRELLA HD: 5 puntas reales
                     ctx.save(); ctx.translate(o.x, o.y);
                     ctx.fillStyle = "yellow"; ctx.shadowBlur = 15; ctx.shadowColor = "yellow";
                     ctx.beginPath();
@@ -404,12 +461,10 @@
                     }
                     ctx.closePath(); ctx.fill(); ctx.restore();
                 } else if(o.type === 'shield') {
-                    // ESCUDO HD: Aura brillante
                     ctx.fillStyle = "#00ffff"; ctx.shadowBlur = 20; ctx.shadowColor = "#00ffff";
                     ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, 7); ctx.fill(); 
                     ctx.fillStyle = "white"; ctx.beginPath(); ctx.arc(o.x, o.y, o.size/2, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
                 } else if(o.type === 'bomb') {
-                    // BOMBA HD: Núcleo palpitante
                     ctx.fillStyle = "#333"; ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, 7); ctx.fill();
                     const pulse = Math.abs(Math.sin(Date.now() * (0.01 + (120 - o.t)*0.0002)));
                     ctx.fillStyle = `rgba(255, 0, 0, ${pulse})`; ctx.shadowBlur = 10; ctx.shadowColor = "red";
@@ -419,7 +474,6 @@
                     ctx.shadowBlur = 5; ctx.shadowColor = "#fff";
                     ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
                 } else if(o.type === 'bullet') {
-                    // BALA ENEMIGA
                     ctx.fillStyle = "red"; ctx.shadowBlur = 5; ctx.shadowColor = "red";
                     ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
                 }
