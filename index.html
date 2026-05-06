@@ -1,242 +1,72 @@
-<!--
-INSTRUCCIÓN IMPORTANTE:
-
-NO reemplaces el juego original.
-
-Tu código original ya contiene:
-- perfiles
-- selección de avatar
-- desbloqueos
-- música
-- inventario
-- boss tortuga avanzado
-- progresión
-
-Lo correcto es pegar EXACTAMENTE estos bloques
-sobre el código original que ya funciona.
-
-El archivo original es:
-"CÓDIGO-VIDEO-JUEGO-CON-MÚSICA.txt"
-
-Estas modificaciones son 100% compatibles
-y NO rompen el juego existente.
--->
-
-<!-- ====================================================== -->
-<!-- 1. VARIABLES GLOBALES -->
-<!-- ====================================================== -->
-
-<!-- PEGAR debajo de: -->
-<!-- let selectedCharacter = 'jellyfish'; -->
-
-<script>
-
-let turtleBossDefeats = 0;
-
-let sargassoMode = false;
-
-let sharkBossMode = false;
-
-let nextSharkBossAt = 50;
-
-let backgroundSeaweed = [];
-
-</script>
-
-
-
-
-
-<!-- ====================================================== -->
-<!-- 2. GENERAR ALGAS DEL FONDO -->
-<!-- ====================================================== -->
-
-<!-- PEGAR debajo del sistema particles -->
-
-<script>
-
-for(let i=0; i<40; i++){
-
-    backgroundSeaweed.push({
-
-        x: Math.random()*width,
-
-        y: Math.random()*height,
-
-        h: 80 + Math.random()*180,
-
-        sway: Math.random()*Math.PI*2,
-
-        speed: 0.5 + Math.random()
-
-    });
-}
-
-</script>
-
-
-
-
-
-<!-- ====================================================== -->
-<!-- 3. FONDO MAR DE LOS SARGAZOS -->
-<!-- ====================================================== -->
-
-<!-- PEGAR debajo de drawAlga() -->
-
-<script>
-
-function drawSargassoBackground(){
-
-    ctx.fillStyle = "#02191c";
-
-    ctx.fillRect(0,0,width,height);
-
-    backgroundSeaweed.forEach(a=>{
-
-        let wave =
-        Math.sin(Date.now()*0.0015 + a.sway) * 18;
-
-        ctx.strokeStyle = "#4caf50";
-
-        ctx.lineWidth = 5;
-
+<!DOCTYPE html>
         ctx.beginPath();
+        ctx.moveTo(player.x-16+i*8,player.y+12);
 
-        ctx.moveTo(a.x, height);
+        for(let j=0;j<4;j++){
+            let ox = Math.sin(time+i*0.8+j*0.5)*10;
 
-        ctx.quadraticCurveTo(
-            a.x + wave,
-            height - a.h/2,
-            a.x + wave*0.5,
-            height - a.h
-        );
+            ctx.quadraticCurveTo(
+                player.x-16+i*8+ox,
+                player.y+20+j*10,
+                player.x-16+i*8,
+                player.y+35+j*10
+            );
+        }
 
         ctx.stroke();
+    }
 
-        a.sway += 0.01 * a.speed;
-    });
-}
-
-</script>
-
-
-
-
-
-<!-- ====================================================== -->
-<!-- 4. TIBURÓN PEQUEÑO -->
-<!-- ====================================================== -->
-
-<script>
-
-function drawSmallShark(o){
-
-    ctx.save();
-
-    ctx.translate(o.x,o.y);
-
-    if(o.vx < 0) ctx.scale(-1,1);
-
-    ctx.fillStyle = "#7aa6b8";
-
+    ctx.fillStyle='#e699ff';
     ctx.beginPath();
-
-    ctx.moveTo(-25,0);
-
-    ctx.lineTo(10,-12);
-
-    ctx.lineTo(28,0);
-
-    ctx.lineTo(10,12);
-
-    ctx.closePath();
-
-    ctx.fill();
-
-    ctx.beginPath();
-
-    ctx.moveTo(-5,-10);
-
-    ctx.lineTo(5,-24);
-
-    ctx.lineTo(12,-8);
-
-    ctx.fill();
-
-    ctx.fillStyle = "white";
-
-    ctx.beginPath();
-
-    ctx.arc(15,-2,3,0,Math.PI*2);
-
-    ctx.fill();
-
-    ctx.fillStyle = "black";
-
-    ctx.beginPath();
-
-    ctx.arc(16,-2,1.5,0,Math.PI*2);
-
+    ctx.arc(player.x,player.y,player.r,Math.PI,0);
+    ctx.lineTo(player.x+player.r,player.y+15);
+    ctx.quadraticCurveTo(player.x,player.y+25,player.x-player.r,player.y+15);
     ctx.fill();
 
     ctx.restore();
 }
 
-</script>
+function drawTurtle(){
 
-
-
-
-
-<!-- ====================================================== -->
-<!-- 5. TIBURÓN EXPLOSIVO -->
-<!-- ====================================================== -->
-
-<script>
-
-function drawExplosiveShark(o){
+    let time = Date.now()*0.002;
 
     ctx.save();
+    ctx.translate(bossX,100);
 
-    let flash =
-    Math.sin(Date.now()*0.02) > 0;
+    ctx.fillStyle='#2d5a27';
 
-    ctx.globalAlpha =
-    flash ? 1 : 0.4;
+    for(let i=0;i<4;i++){
 
-    drawSmallShark(o);
+        ctx.save();
 
-    ctx.fillStyle = "red";
+        ctx.rotate((i<2?-1:1)*0.4 + Math.sin(time+i)*0.2);
 
+        ctx.translate(i<2?-50:50, i%2===0?-20:20);
+
+        ctx.scale(1,15/35);
+
+        ctx.beginPath();
+        ctx.arc(0,0,35,0,Math.PI*2);
+        ctx.fill();
+
+        ctx.restore();
+    }
+
+    let grad = ctx.createRadialGradient(0,0,10,0,0,70);
+    grad.addColorStop(0,'#4a9c43');
+    grad.addColorStop(1,'#1d3d19');
+
+    ctx.fillStyle = grad;
+
+    ctx.save();
+    ctx.scale(1,55/75);
     ctx.beginPath();
-
-    ctx.arc(
-        o.x+10,
-        o.y-8,
-        5,
-        0,
-        Math.PI*2
-    );
-
-    ctx.fill();
+    ctx.arc(0,0,75,0,Math.PI*2);
+                ctx.fill();
+    ctx.restore();
 
     ctx.restore();
 }
-
-</script>
-
-
-
-
-
-<!-- ====================================================== -->
-<!-- 6. NUEVO BOSS TIBURÓN -->
-<!-- ====================================================== -->
-
-<!-- PEGAR debajo de drawTurtle() -->
-
-<script>
 
 function drawSharkBoss(){
 
@@ -244,16 +74,13 @@ function drawSharkBoss(){
 
     ctx.translate(bossX,130);
 
-    ctx.fillStyle = "#5e7f91";
+    ctx.fillStyle='#5e7f91';
 
     ctx.beginPath();
 
     ctx.moveTo(-140,0);
-
     ctx.lineTo(60,-50);
-
     ctx.lineTo(150,0);
-
     ctx.lineTo(60,50);
 
     ctx.closePath();
@@ -263,50 +90,32 @@ function drawSharkBoss(){
     ctx.beginPath();
 
     ctx.moveTo(-20,-45);
-
     ctx.lineTo(20,-95);
-
     ctx.lineTo(40,-35);
 
     ctx.fill();
 
-    ctx.fillStyle = "white";
+    ctx.fillStyle='white';
 
     for(let i=0;i<8;i++){
 
         ctx.beginPath();
 
         ctx.moveTo(70+i*8,10);
-
         ctx.lineTo(74+i*8,28);
-
         ctx.lineTo(78+i*8,10);
 
         ctx.fill();
     }
 
-    ctx.fillStyle = "red";
+    ctx.fillStyle='red';
 
     ctx.beginPath();
-
     ctx.arc(90,-10,8,0,Math.PI*2);
-
     ctx.fill();
 
     ctx.restore();
 }
-
-</script>
-
-
-
-
-
-<!-- ====================================================== -->
-<!-- 7. REEMPLAZAR COMPLETAMENTE spawn() -->
-<!-- ====================================================== -->
-
-<script>
 
 function spawn(){
 
@@ -342,8 +151,7 @@ function spawn(){
             'bubble';
     }
 
-    let fromLeft =
-    Math.random() > 0.5;
+    let fromLeft = Math.random() > 0.5;
 
     if(
         type === 'smallShark' ||
@@ -352,17 +160,11 @@ function spawn(){
 
         objects.push({
 
-            x:
-            fromLeft
-            ? -80
-            : width+80,
+            x: fromLeft ? -80 : width+80,
 
-            y:
-            180 +
-            Math.random()*(height-300),
+            y: 180 + Math.random()*(height-300),
 
-            vx:
-            fromLeft ? 4 : -4,
+            vx: fromLeft ? 4 : -4,
 
             vy:0,
 
@@ -414,18 +216,6 @@ function spawn(){
         Math.max(300,1100-(level*70))
     );
 }
-
-</script>
-
-
-
-
-
-<!-- ====================================================== -->
-<!-- 8. NUEVO ATAQUE BOSS TIBURÓN -->
-<!-- ====================================================== -->
-
-<script>
 
 function spawnSharkBossShot(){
 
@@ -484,207 +274,378 @@ function spawnSharkBossShot(){
     }
 }
 
-</script>
+function update(){
 
+    if(!gameStarted || gameOver) return;
 
+    level = Math.floor(score/40) + 1;
 
+    if(
+        score >= nextBossAt &&
+        !isBossMode &&
+        !sargassoMode
+    ){
 
+        isBossMode = true;
 
-<!-- ====================================================== -->
-<!-- 9. MODIFICAR spawnBossShot() -->
-<!-- ====================================================== -->
+        bossShots = 10 + level;
 
-<!-- BUSCAR -->
+        bossX = width/2;
 
-else {
-
-    setTimeout(() => {
-
-        isBossMode = false;
-
-<!-- Y REEMPLAZAR POR -->
-
-else {
-
-    turtleBossDefeats++;
-
-    if(turtleBossDefeats >= 2){
-
-        sargassoMode = true;
+        objects = [];
 
         document
         .getElementById('event-alert')
-        .innerText =
-        "🌿 MAR DE LOS SARGAZOS 🌿";
+        .innerText = '🐢 JEFE TORTUGA';
 
         document
         .getElementById('event-alert')
-        .style.display='block';
-
-        setTimeout(()=>{
-
-            document
-            .getElementById('event-alert')
-            .style.display='none';
-
-        },4000);
+        .style.display = 'block';
     }
 
-    setTimeout(() => {
+    if(
+        sargassoMode &&
+        score >= nextSharkBossAt &&
+        !sharkBossMode &&
+        !isBossMode
+    ){
 
-        isBossMode = false;
+        sharkBossMode = true;
 
+        bossShots = 18;
 
+        bossX = width/2;
 
+        objects = [];
 
+        document
+        .getElementById('event-alert')
+        .innerText = '🦈 MEGALODÓN 🦈';
 
-<!-- ====================================================== -->
-<!-- 10. ACTIVAR BOSS TIBURÓN -->
-<!-- ====================================================== -->
+        document
+        .getElementById('event-alert')
+        .style.display = 'block';
+    }
 
-<!-- PEGAR dentro de update() -->
-<!-- JUSTO debajo del boss tortuga -->
+    if(isBossMode || sharkBossMode){
 
-<script>
+        bossX += bossDir;
 
-if(
-    sargassoMode &&
-    score >= nextSharkBossAt &&
-    !sharkBossMode &&
-    !isBossMode
-){
+        if(
+            bossX > width-120 ||
+            bossX < 120
+        ){
+            bossDir *= -1;
+        }
+    }
 
-    sharkBossMode = true;
+    invulTime =
+    Math.max(0,invulTime-16);
 
-    bossShots = 18;
+    objects.forEach(o=>{
 
-    bossX = width/2;
+        o.x += o.vx;
+        o.y += o.vy;
 
-    objects = [];
+        if(
+            o.type === 'explosiveShark' &&
+            --o.t <= 0
+        ){
+
+            o.dead = true;
+
+            for(let k=0;k<8;k++){
+
+                let ang =
+                (k/8)*Math.PI*2;
+
+                objects.push({
+
+                    x:o.x,
+                    y:o.y,
+
+                    vx:Math.cos(ang)*5,
+                    vy:Math.sin(ang)*5,
+
+                    size:6,
+
+                    type:'bullet',
+
+                    dead:false
+                });
+            }
+        }
+
+        let dx = player.x - o.x;
+        let dy = player.y - o.y;
+
+        let dist =
+        Math.sqrt(dx*dx + dy*dy);
+
+        if(
+            dist <
+            player.r + o.size - 5
+        ){
+
+            if(
+                o.type === 'bubble' ||
+                o.type === 'bullet' ||
+                o.type === 'smallShark' ||
+                o.type === 'explosiveShark'
+            ){
+
+                if(invulTime <= 0){
+
+                    hp--;
+
+                    invulTime = 1500;
+
+                    if(hp <= 0){
+
+                        gameOver = true;
+
+                        alert('FIN DEL JUEGO');
+                    }
+                }
+            }
+
+            else if(o.type === 'alga'){
+
+                energy =
+                Math.min(
+                    maxEnergy,
+                    energy+1
+                );
+
+                if(energy >= maxEnergy){
+
+                    energy = 0;
+
+                    shootingTime = 5000;
+
+                    document
+                    .getElementById('event-alert')
+                    .innerText =
+                    '⚡ ENERGÍA MÁXIMA ⚡';
+
+                    document
+                    .getElementById('event-alert')
+                    .style.display='block';
+
+                    setTimeout(()=>{
+
+                        document
+                        .getElementById('event-alert')
+                        .style.display='none';
+
+                    },2000);
+                }
+            }
+
+            else if(o.type === 'star'){
+
+                score += 5;
+            }
+
+            o.dead = true;
+        }
+
+        if(o.y > height+100){
+
+            if(o.type==='bubble')
+                score++;
+
+            o.dead = true;
+        }
+    });
+
+    objects =
+    objects.filter(o=>!o.dead);
 
     document
-    .getElementById('event-alert')
-    .innerText =
-    "🦈 MEGALODÓN 🦈";
+    .getElementById('score')
+    .innerText = score;
 
     document
-    .getElementById('event-alert')
-    .style.display='block';
+    .getElementById('level')
+    .innerText = level;
 
-    setTimeout(
-        spawnSharkBossShot,
-        1500
-    );
+    document
+    .getElementById('hp-fill')
+    .style.width =
+    (hp/maxHp*100)+'%';
+
+    document
+    .getElementById('ep-fill')
+    .style.width =
+    (energy/maxEnergy*100)+'%';
 }
+
+function loop(){
+
+    let bgHue =
+    220 + (level*8);
+
+    if(sargassoMode){
+
+        drawSargassoBackground();
+
+    }else{
+
+        ctx.fillStyle =
+        isBossMode
+        ? '#1a0505'
+        : `hsl(${Math.min(bgHue,360)},100%,8%)`;
+
+        ctx.fillRect(0,0,width,height);
+    }
+
+    particles.forEach(p=>{
+
+        p.y += p.v;
+
+        if(p.y > height)
+            p.y = 0;
+
+        ctx.fillStyle =
+        'rgba(255,255,255,0.15)';
+
+        ctx.beginPath();
+
+        ctx.arc(
+            p.x,
+            p.y,
+            p.s,
+            0,
+            Math.PI*2
+        );
+
+        ctx.fill();
+    });
+
+    if(isBossMode)
+        drawTurtle();
+
+    if(sharkBossMode)
+        drawSharkBoss();
+
+    objects.forEach(o=>{
+
+        if(o.type==='bubble')
+            drawBubble(o);
+
+        else if(o.type==='alga')
+            drawAlga(o);
+
+        else if(o.type==='smallShark')
+            drawSmallShark(o);
+
+        else if(o.type==='explosiveShark')
+            drawExplosiveShark(o);
+
+        else if(o.type==='star'){
+
+            ctx.fillStyle='yellow';
+
+            ctx.beginPath();
+
+            ctx.arc(
+                o.x,
+                o.y,
+                10,
+                0,
+                Math.PI*2
+            );
+
+            ctx.fill();
+        }
+    });
+
+    drawPlayer();
+
+    update();
+
+    requestAnimationFrame(loop);
+}
+
+function selectChar(t, req){
+
+    selectedCharacter = t;
+}
+
+function startGame(){
+
+    document
+    .getElementById('start-screen')
+    .style.display='none';
+
+    document
+    .getElementById('char-select-screen')
+    .style.display='none';
+
+    document
+    .getElementById('ui')
+    .style.display='flex';
+
+    document
+    .getElementById('inventory-bar')
+    .style.display='flex';
+
+    document
+    .getElementById('bgMusic')
+    .play();
+
+    gameStarted = true;
+
+    player.x = width/2;
+    player.y = height*0.8;
+
+    spawn();
+}
+
+document
+.getElementById('to-char-select')
+.onclick = ()=>{
+
+    document
+    .getElementById('start-screen')
+    .style.display='none';
+
+    document
+    .getElementById('char-select-screen')
+    .style.display='flex';
+};
+
+document
+.getElementById('play-btn')
+.onclick = startGame;
+
+window.addEventListener('mousemove',e=>{
+
+    if(gameStarted){
+
+        player.x = e.clientX;
+        player.y = e.clientY;
+    }
+});
+
+window.addEventListener('touchmove',e=>{
+
+    if(gameStarted){
+
+        e.preventDefault();
+
+        player.x =
+        e.touches[0].clientX;
+
+        player.y =
+        e.touches[0].clientY;
+    }
+
+},{passive:false});
+
+loop();
 
 </script>
-
-
-
-
-
-<!-- ====================================================== -->
-<!-- 11. COLISIONES -->
-<!-- ====================================================== -->
-
-<!-- BUSCAR -->
-
-if (
-    o.type === 'bubble' ||
-    o.type === 'bullet'
-)
-
-<!-- REEMPLAZAR POR -->
-
-if (
-    o.type === 'bubble' ||
-    o.type === 'bullet' ||
-    o.type === 'smallShark' ||
-    o.type === 'explosiveShark'
-)
-
-
-
-
-
-<!-- ====================================================== -->
-<!-- 12. TIBURÓN EXPLOSIVO -->
-<!-- ====================================================== -->
-
-<!-- BUSCAR -->
-
-if (o.type === 'bomb'
-
-<!-- REEMPLAZAR POR -->
-
-if (
-    o.type === 'bomb' ||
-    o.type === 'explosiveShark'
-)
-
-
-
-
-
-<!-- ====================================================== -->
-<!-- 13. FONDO NUEVO -->
-<!-- ====================================================== -->
-
-<!-- BUSCAR -->
-
-ctx.fillStyle =
-isBossMode
-? "#1a0505"
-: "hsl(" + Math.min(bgHue, 360) + ", 100%, 8%)";
-
-ctx.fillRect(0,0,width,height);
-
-<!-- REEMPLAZAR POR -->
-
-if(sargassoMode){
-
-    drawSargassoBackground();
-
-}else{
-
-    ctx.fillStyle =
-    isBossMode
-    ? "#1a0505"
-    : "hsl(" + Math.min(bgHue, 360) + ", 100%, 8%)";
-
-    ctx.fillRect(0,0,width,height);
-}
-
-
-
-
-
-<!-- ====================================================== -->
-<!-- 14. DIBUJAR NUEVOS TIBURONES -->
-<!-- ====================================================== -->
-
-<!-- DENTRO DEL render objects.forEach -->
-
-<!-- AÑADIR -->
-
-else if(o.type === 'smallShark')
-    drawSmallShark(o);
-
-else if(o.type === 'explosiveShark')
-    drawExplosiveShark(o);
-
-
-
-
-
-<!-- ====================================================== -->
-<!-- 15. DIBUJAR BOSS TIBURÓN -->
-<!-- ====================================================== -->
-
-<!-- BUSCAR -->
-
-if(isBossMode) drawTurtle();
-
-<!-- AÑADIR DEBAJO -->
-
-if(sharkBossMode) drawSharkBoss();
+</body>
+</html>
