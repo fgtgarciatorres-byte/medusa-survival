@@ -22,16 +22,22 @@
         .char-card { background: rgba(255,255,255,0.05); border: 2px solid #444; padding: 15px; border-radius: 15px; width: 100px; cursor: pointer; position: relative; }
         .char-card.selected { border-color: #00d4ff; background: rgba(0, 212, 255, 0.1); }
         .char-card.locked { opacity: 0.5; cursor: not-allowed; }
+        .char-card.locked::after { content: "🔒"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 24px; }
         #event-alert { position: fixed; top: 100px; width: 100%; text-align: center; color: #00ffcc; font-size: 24px; font-weight: 900; display: none; text-shadow: 0 0 20px #00ffcc; z-index: 400; animation: blink 0.5s infinite; }
         @keyframes blink { 0%, 100% { opacity: 0.2; } 50% { opacity: 1; } }
+        .profile-panel { background: rgba(0,212,255,0.1); border: 2px solid #00d4ff; padding: 20px; border-radius: 15px; margin: 15px 0; min-width: 250px; text-align: left; }
     </style>
 </head>
 <body>
 
     <div id="ui">
         <div>PTS: <span id="score">0</span></div>
-        <div style="display:flex; align-items:center; gap:5px;">❤️<div class="bar-container"><div class="bar"><div id="hp-fill"></div></div></div></div>
-        <div style="display:flex; align-items:center; gap:5px; color:#00ffcc;">⚡<div class="bar-container" style="border-color:#00ffcc;"><div class="bar"><div id="ep-fill"></div></div></div></div>
+        <div style="display:flex; align-items:center; gap:5px;">
+            ❤️<div class="bar-container"><div class="bar"><div id="hp-fill"></div></div></div>
+        </div>
+        <div style="display:flex; align-items:center; gap:5px; color:#00ffcc;">
+            ⚡<div class="bar-container" style="border-color:#00ffcc;"><div class="bar"><div id="ep-fill"></div></div></div>
+        </div>
         <div>LVL: <span id="level">1</span></div>
     </div>
 
@@ -44,6 +50,7 @@
 
     <div id="start-screen" class="overlay">
         <h1 style="color:#ff00ff; font-size:40px; margin:0; text-shadow: 0 0 20px #ff00ff;">🪼 JELLYFISH</h1>
+        <p style="margin-bottom: 5px;">INICIALES DEL JUGADOR</p>
         <input type="text" id="player-name-input" placeholder="AAA" maxlength="3">
         <button id="to-char-select">ACCEDER</button>
     </div>
@@ -70,7 +77,6 @@
         <button onclick="location.reload()">VOLVER AL INICIO</button>
     </div>
 
-    <!-- AUDIO COMPONENT -->
     <audio id="bgMusic" loop>
         <source src="Button_Bop_Logic.mp3" type="audio/mpeg">
     </audio>
@@ -80,6 +86,7 @@
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+        
         let width, height;
         const resize = () => {
             width = canvas.width = window.innerWidth;
@@ -91,12 +98,12 @@
         let audioCtx, gameStarted = false, gameOver = false;
         let score = 0, hp = 3, maxHp = 3, level = 1, energy = 0, maxEnergy = 6;
         let shieldTime = 0, invulTime = 0, shootingTime = 0, lastShotFired = 0;
-        let isBossMode = false, bossX = 0, bossDir = 3, nextBossAt = 50;
+        let isBossMode = false, bossX = width/2, bossDir = 3, bossShots = 0, nextBossAt = 50;
         let playerName = "AAA", userData = { bestScore: 0, diamonds: 0, trophies: 0 }, allProfiles = {};
-        let player = { x: 0, y: 0, r: 25 }, objects = [], particles = [];
+        let player = { x: width/2, y: height/2, r: 25 }, objects = [], particles = [];
         let selectedCharacter = 'jellyfish';
 
-        for(let i=0; i<30; i++) particles.push({ x: Math.random()*window.innerWidth, y: Math.random()*window.innerHeight, s: Math.random()*2+1, v: Math.random()*0.5+0.1 });
+        for(let i=0; i<30; i++) particles.push({ x: Math.random()*width, y: Math.random()*height, s: Math.random()*2+1, v: Math.random()*0.5+0.1 });
 
         function playSnd(f, type='sine', d=0.15) {
             if(!audioCtx) return;
@@ -112,9 +119,23 @@
         function drawAlga(o) {
             ctx.save(); ctx.translate(o.x, o.y);
             let sway = Math.sin(Date.now() * 0.005 + o.y * 0.05) * 6;
-            ctx.fillStyle = "#33cc33"; ctx.beginPath(); ctx.moveTo(0, o.size);
-            ctx.quadraticCurveTo(o.size+sway, 0, sway, -o.size);
+            ctx.fillStyle = "#33cc33"; ctx.beginPath();
+            ctx.moveTo(0, o.size); ctx.quadraticCurveTo(o.size+sway, 0, sway, -o.size);
             ctx.quadraticCurveTo(-o.size+sway, 0, 0, o.size); ctx.fill(); ctx.restore();
+        }
+
+        function drawTurtle() {
+            let time = Date.now() * 0.002; ctx.save(); ctx.translate(bossX, 100);
+            ctx.fillStyle = "#2d5a27";
+            for(let i=0; i<4; i++) {
+                ctx.save(); ctx.rotate((i<2?-1:1)*0.4 + Math.sin(time+i)*0.2);
+                ctx.translate(i<2?-50:50, i%2===0?-20:20); ctx.scale(1, 15/35);
+                ctx.beginPath(); ctx.arc(0,0,35,0,Math.PI*2); ctx.fill(); ctx.restore();
+            }
+            ctx.fillStyle = "#4a9c43"; ctx.save(); ctx.scale(1, 55/75);
+            ctx.beginPath(); ctx.arc(0,0,75,0,Math.PI*2); ctx.fill(); ctx.restore();
+            ctx.fillStyle = "red"; ctx.beginPath();
+            ctx.arc(-8, -75+Math.sin(time)*5, 4, 0, Math.PI*2); ctx.arc(8, -75+Math.sin(time)*5, 4, 0, Math.PI*2); ctx.fill(); ctx.restore();
         }
 
         function drawPlayer() {
@@ -135,6 +156,9 @@
                 }
                 ctx.fillStyle = "#e699ff"; ctx.beginPath(); ctx.arc(player.x, player.y, player.r, Math.PI, 0);
                 ctx.lineTo(player.x+player.r, player.y+15); ctx.quadraticCurveTo(player.x, player.y+25, player.x-player.r, player.y+15); ctx.fill();
+                // OJOS RESTAURADOS
+                ctx.fillStyle = "white"; ctx.beginPath(); ctx.arc(player.x-8, player.y-5, 5, 0, Math.PI*2); ctx.arc(player.x+8, player.y-5, 5, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = "black"; ctx.beginPath(); ctx.arc(player.x-8, player.y-5, 2.5, 0, Math.PI*2); ctx.arc(player.x+8, player.y-5, 2.5, 0, Math.PI*2); ctx.fill();
             }
             ctx.restore();
         }
@@ -142,40 +166,58 @@
         function spawn() {
             if (gameOver || !gameStarted || isBossMode) return;
             let r = Math.random();
-            let type = r > 0.8 ? 'alga' : (r > 0.7 ? 'star' : 'bubble');
-            objects.push({ x: Math.random()*width, y: -50, vx: (Math.random()-0.5)*2, vy: 2 + level*0.4, size: 20, type: type, dead: false });
+            let type = r > 0.95 ? 'shield' : (r > 0.85 ? 'star' : (r > 0.75 ? 'alga' : 'bubble'));
+            objects.push({ x: Math.random()*width, y: -50, vx: (Math.random()-0.5)*2, vy: 2.5 + level*0.4, size: 22, type: type, dead: false });
             setTimeout(spawn, Math.max(300, 1100 - (level * 70)));
         }
 
-        const startGame = function() {
-            try { 
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)(); 
-                if(audioCtx.state === 'suspended') audioCtx.resume();
-            } catch(e){}
-            
-            const music = document.getElementById('bgMusic');
-            music.play().catch(e => console.log("Audio waiting for user"));
-
-            hp = maxHp; score = 0; level = 1; energy = 0;
-            gameStarted = true; gameOver = false;
-            player.x = width/2; player.y = height*0.8;
-            objects = [];
-            document.getElementById('char-select-screen').style.display = 'none';
-            document.getElementById('ui').style.display = 'flex';
-            spawn();
-        };
+        function spawnBossShot() {
+            if (!isBossMode || gameOver) return;
+            let angle = Math.atan2(player.y - 130, player.x - bossX);
+            objects.push({ x: bossX, y: 130, vx: Math.cos(angle)*6, vy: Math.sin(angle)*6, size: 15, type: 'bullet', dead: false });
+            bossShots--;
+            if (bossShots > 0) setTimeout(spawnBossShot, 800);
+            else { setTimeout(() => { isBossMode = false; nextBossAt += 100; document.getElementById('event-alert').style.display = 'none'; level++; spawn(); }, 3000); }
+        }
 
         function update() {
             if(!gameStarted || gameOver) return;
             level = Math.floor(score/40) + 1;
-            
+
+            if (shootingTime > 0) {
+                shootingTime -= 16;
+                if (Date.now() - lastShotFired > 300) {
+                    objects.push({ x: player.x, y: player.y - player.r, vx: 0, vy: -10, size: 6, type: 'playerBullet', dead: false });
+                    lastShotFired = Date.now();
+                }
+            }
+
+            if (score >= nextBossAt && !isBossMode) {
+                isBossMode = true; bossShots = 10 + level;
+                document.getElementById('event-alert').innerText = "¡JEFE TORTUGA!";
+                document.getElementById('event-alert').style.display = 'block';
+                objects = []; setTimeout(spawnBossShot, 2000);
+            }
+            if (isBossMode) { bossX += bossDir; if(bossX > width-80 || bossX < 80) bossDir *= -1; }
+
+            invulTime = Math.max(0, invulTime - 16);
+            shieldTime = Math.max(0, shieldTime - 16);
+
             objects.forEach(o => {
                 o.x += o.vx; o.y += o.vy;
                 let dx = player.x - o.x, dy = player.y - o.y;
                 let dist = Math.sqrt(dx*dx + dy*dy);
+
                 if (dist < player.r + o.size - 6) {
                     if (o.type === 'bubble') { score++; playSnd(600); }
-                    else if (o.type === 'alga') { energy = Math.min(maxEnergy, energy+1); playSnd(800); }
+                    else if (o.type === 'alga') { 
+                        energy++; 
+                        if(energy >= maxEnergy) { energy = 0; shootingTime = 5000; document.getElementById('event-alert').style.display = 'block'; setTimeout(()=>document.getElementById('event-alert').style.display='none', 2000); }
+                    }
+                    else if (o.type === 'shield') shieldTime = 5000;
+                    else if (o.type === 'bullet' || o.type === 'bubble') {
+                        if (invulTime <= 0 && shieldTime <= 0) { hp--; invulTime = 1500; playSnd(100, 'sawtooth'); if(hp<=0) gameOver=true; }
+                    }
                     o.dead = true;
                 }
                 if (o.y > height + 100) o.dead = true;
@@ -186,24 +228,25 @@
             document.getElementById('level').innerText = level;
             document.getElementById('hp-fill').style.width = (hp/maxHp*100) + '%';
             document.getElementById('ep-fill').style.width = (energy/maxEnergy*100) + '%';
+            if(gameOver) { document.getElementById('final-score').innerText = score; document.getElementById('game-over-screen').style.display = 'flex'; }
         }
 
         function loop() {
             let bgHue = 220 + (level * 8);
-            ctx.fillStyle = "hsl(" + Math.min(bgHue, 360) + ", 100%, 8%)";
+            ctx.fillStyle = isBossMode ? "#1a0505" : "hsl(" + Math.min(bgHue, 360) + ", 100%, 8%)";
             ctx.fillRect(0,0,width,height);
 
             particles.forEach(p => {
                 p.y += p.v; if(p.y > height) p.y = 0;
-                ctx.fillStyle = "rgba(255,255,255,0.15)";
-                ctx.beginPath(); ctx.arc(p.x, p.y, p.s, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = "rgba(255,255,255,0.15)"; ctx.beginPath(); ctx.arc(p.x, p.y, p.s, 0, Math.PI*2); ctx.fill();
             });
 
+            if(isBossMode) drawTurtle();
             objects.forEach(o => {
-                if(o.type === 'bubble') {
-                    ctx.fillStyle = "rgba(180, 220, 255, 0.4)";
-                    ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, Math.PI*2); ctx.fill();
-                } else if(o.type === 'alga') drawAlga(o);
+                if(o.type === 'bubble') { ctx.fillStyle = "rgba(180, 220, 255, 0.4)"; ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, Math.PI*2); ctx.fill(); }
+                else if(o.type === 'alga') drawAlga(o);
+                else if(o.type === 'bullet') { ctx.fillStyle = "red"; ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, Math.PI*2); ctx.fill(); }
+                else if(o.type === 'playerBullet') { ctx.fillStyle = "cyan"; ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, Math.PI*2); ctx.fill(); }
             });
 
             if(!gameStarted) { player.x = width/2; player.y = height*0.7 + Math.sin(Date.now()*0.002)*15; }
@@ -212,15 +255,22 @@
             requestAnimationFrame(loop);
         }
 
-        document.getElementById('to-char-select').onclick = () => {
-            document.getElementById('start-screen').style.display = 'none';
-            document.getElementById('char-select-screen').style.display = 'flex';
+        const startGame = () => {
+            try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){}
+            document.getElementById('bgMusic').play();
+            gameStarted = true; gameOver = false; score = 0; hp = 3; energy = 0;
+            player.x = width/2; player.y = height*0.8; objects = [];
+            document.getElementById('char-select-screen').style.display = 'none';
+            document.getElementById('ui').style.display = 'flex';
+            spawn();
         };
+
+        document.getElementById('to-char-select').onclick = () => { document.getElementById('start-screen').style.display = 'none'; document.getElementById('char-select-screen').style.display = 'flex'; };
         document.getElementById('play-btn').onclick = startGame;
         window.addEventListener('mousemove', e => { if(gameStarted) { player.x = e.clientX; player.y = e.clientY; } });
         window.addEventListener('touchmove', e => { if(gameStarted) { player.x = e.touches[0].clientX; player.y = e.touches[0].clientY; } });
-        
         loop();
+        function selectChar(t) { selectedCharacter = t; }
     </script>
 </body>
 </html>
