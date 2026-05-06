@@ -10,23 +10,20 @@
         canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
         .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 5, 15, 0.7); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; text-align: center; padding: 20px; box-sizing: border-box; }
         #ui { position: fixed; top: 20px; width: 100%; display: none; justify-content: center; gap: 15px; align-items: center; color: #00d4ff; font-weight: bold; font-size: 16px; z-index: 500; pointer-events: none; text-shadow: 0 0 10px #00d4ff; flex-wrap: wrap; }
-        
-        /* Barra inferior restaurada */
         #inventory-bar { position: fixed; bottom: 0; width: 100%; background: rgba(0,0,0,0.8); display: none; justify-content: center; gap: 30px; padding: 10px 0; border-top: 2px solid #ff00ff; z-index: 1000; font-size: 16px; text-shadow: 0 0 5px black; }
         .inv-item { display: flex; align-items: center; gap: 8px; }
-
         .bar-container { border: 2px solid white; border-radius: 10px; padding: 2px; background: rgba(0,0,0,0.5); }
         .bar { width: 60px; height: 12px; background: rgba(255,255,255,0.1); border-radius: 8px; overflow: hidden; }
         #hp-fill { width: 100%; height: 100%; background: linear-gradient(90deg, #ff3300, #ff6600); transition: width 0.3s; }
         #ep-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #00ffcc, #0088ff); transition: width 0.3s; }
-        
         button { padding: 15px 30px; background: #ff00ff; color: white; font-size: 18px; font-weight: bold; border: none; border-radius: 50px; box-shadow: 0 0 15px #ff00ff; cursor: pointer; margin: 10px; transition: 0.2s; }
         input { padding: 12px; border-radius: 10px; border: 2px solid #00d4ff; background: rgba(0,0,0,0.6); color: yellow; font-size: 24px; font-weight: bold; text-align: center; margin: 15px 0; width: 120px; text-transform: uppercase; letter-spacing: 5px; }
-        
         .char-grid { display: flex; gap: 15px; margin: 20px 0; flex-wrap: wrap; justify-content: center; z-index: 10001; }
         .char-card { background: rgba(255,255,255,0.05); border: 2px solid #444; padding: 15px; border-radius: 15px; width: 100px; cursor: pointer; position: relative; }
         .char-card.selected { border-color: #00d4ff; background: rgba(0, 212, 255, 0.1); }
-        
+        /* Estilo de bloqueo restaurado */
+        .char-card.locked { opacity: 0.5; cursor: not-allowed; }
+        .char-card.locked::after { content: "🔒"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 24px; }
         #event-alert { position: fixed; top: 100px; width: 100%; text-align: center; color: #00ffcc; font-size: 24px; font-weight: 900; display: none; text-shadow: 0 0 20px #00ffcc; z-index: 400; animation: blink 0.5s infinite; }
         @keyframes blink { 0%, 100% { opacity: 0.2; } 50% { opacity: 1; } }
     </style>
@@ -40,7 +37,6 @@
         <div>LVL: <span id="level">1</span></div>
     </div>
 
-    <!-- HTML Barra inferior restaurado -->
     <div id="inventory-bar">
         <div class="inv-item">💎 <span id="inv-diamonds">0</span> / 10</div>
         <div class="inv-item">🏆 <span id="inv-trophies">0</span></div>
@@ -60,10 +56,11 @@
             <div id="char-jellyfish" class="char-card selected" onclick="selectChar('jellyfish', 0)">
                 <div style="font-size:30px">🪼</div><p>Medusa</p>
             </div>
-            <div id="char-crab" class="char-card" onclick="selectChar('crab', 0)">
+            <!-- Candados restaurados con requisitos de 150 y 250 -->
+            <div id="char-crab" class="char-card locked" onclick="selectChar('crab', 150)">
                 <div style="font-size:30px">🦀</div><p>Cangrejo</p>
             </div>
-            <div id="char-octopus" class="char-card" onclick="selectChar('octopus', 0)">
+            <div id="char-octopus" class="char-card locked" onclick="selectChar('octopus', 250)">
                 <div style="font-size:30px">🐙</div><p>Pulpo</p>
             </div>
         </div>
@@ -98,7 +95,25 @@
         let selectedCharacter = 'jellyfish';
         let userData = { diamonds: 0, trophies: 0, bestScore: 0 };
 
+        try { let saved = localStorage.getItem('jellyProfilesV4'); if (saved) { let parsed = JSON.parse(saved); userData = parsed[Object.keys(parsed)[0]] || userData; } } catch(e) {}
+
         for(let i=0; i<30; i++) particles.push({ x: Math.random()*width, y: Math.random()*height, s: Math.random()*2+1, v: Math.random()*0.5+0.1 });
+
+        function updateGlobalUI() {
+            if(userData.bestScore >= 150) document.getElementById('char-crab').classList.remove('locked');
+            if(userData.bestScore >= 250) document.getElementById('char-octopus').classList.remove('locked');
+        }
+
+        function playSnd(f, type='sine', d=0.15) {
+            if(!audioCtx) return;
+            try {
+                const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+                o.type = type; o.frequency.setValueAtTime(f, audioCtx.currentTime);
+                g.gain.setValueAtTime(0.04, audioCtx.currentTime);
+                o.connect(g); g.connect(audioCtx.destination);
+                o.start(); o.stop(audioCtx.currentTime + d);
+            } catch(e){}
+        }
 
         function drawBubble(o) {
             ctx.save(); ctx.fillStyle = "rgba(180, 220, 255, 0.4)";
@@ -114,12 +129,6 @@
             ctx.beginPath(); ctx.moveTo(0, o.size);
             ctx.quadraticCurveTo(o.size+sway, 0, sway, -o.size);
             ctx.quadraticCurveTo(-o.size+sway, 0, 0, o.size); ctx.fill(); ctx.stroke(); ctx.restore();
-        }
-
-        function drawBomb(o) {
-            ctx.save(); ctx.fillStyle = "#333"; ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, Math.PI*2); ctx.fill();
-            let pulse = Math.abs(Math.sin(Date.now() * 0.01));
-            ctx.fillStyle = "rgba(255, 0, 0, " + pulse + ")"; ctx.beginPath(); ctx.arc(o.x, o.y, o.size/2, 0, Math.PI*2); ctx.fill(); ctx.restore();
         }
 
         function drawTurtle() {
@@ -167,6 +176,15 @@
             setTimeout(spawn, Math.max(300, 1100 - (level * 70)));
         }
 
+        function spawnBossShot() {
+            if (!isBossMode || gameOver) return;
+            let angle = Math.atan2(player.y - 130, player.x - bossX);
+            objects.push({ x: bossX, y: 130, vx: Math.cos(angle)*6, vy: Math.sin(angle)*6, size: 15, type: 'bullet', dead: false });
+            bossShots--;
+            if (bossShots > 0) setTimeout(spawnBossShot, 800);
+            else { setTimeout(() => { isBossMode = false; nextBossAt += 100; document.getElementById('event-alert').style.display = 'none'; level++; spawn(); }, 3000); }
+        }
+
         function update() {
             if(!gameStarted || gameOver) return;
             level = Math.floor(score/40) + 1;
@@ -184,12 +202,12 @@
                 document.getElementById('event-alert').innerText = "¡JEFE TORTUGA!";
                 document.getElementById('event-alert').style.display = 'block';
                 objects = [];
+                setTimeout(spawnBossShot, 2000); // Disparo del boss activado
             }
             if (isBossMode) { bossX += bossDir; if(bossX > width-80 || bossX < 80) bossDir *= -1; }
 
             invulTime = Math.max(0, invulTime - 16);
 
-            // Colisión Disparo -> Burbuja/Bomba/Diamante
             for (let i = 0; i < objects.length; i++) {
                 let pb = objects[i]; if (pb.dead || pb.type !== 'playerBullet') continue;
                 for (let j = 0; j < objects.length; j++) {
@@ -197,13 +215,8 @@
                     let dx = pb.x - target.x, dy = pb.y - target.y;
                     if (Math.sqrt(dx*dx + dy*dy) < pb.size + target.size) {
                         pb.dead = true; target.dead = true;
-                        // Probabilidad de Diamante restaurada (40%)
-                        if (target.type === 'bubble' && Math.random() > 0.6) {
-                            objects.push({ x: target.x, y: target.y, vx: 0, vy: 3, size: 10, type: 'diamond', dead:false });
-                        }
-                        if (target.type === 'bomb') {
-                             for(let k=0;k<8;k++){ let ang=(k/8)*Math.PI*2; objects.push({x:target.x,y:target.y,vx:Math.cos(ang)*5,vy:Math.sin(ang)*5,size:6,type:'bullet',dead:false}); }
-                        }
+                        if (target.type === 'bubble' && Math.random() > 0.6) { objects.push({ x: target.x, y: target.y, vx: 0, vy: 3, size: 10, type: 'diamond', dead:false }); }
+                        if (target.type === 'bomb') { for(let k=0;k<8;k++){ let ang=(k/8)*Math.PI*2; objects.push({x:target.x,y:target.y,vx:Math.cos(ang)*5,vy:Math.sin(ang)*5,size:6,type:'bullet',dead:false}); } }
                         score += 5; break;
                     }
                 }
@@ -211,26 +224,16 @@
 
             objects.forEach(o => {
                 o.x += o.vx; o.y += o.vy;
-                
-                // Bombas automáticas
                 if (o.type === 'bomb' && --o.t <= 0) {
-                    o.dead = true; 
-                    for(let k=0;k<4;k++){ let ang=Math.random()*Math.PI*2; objects.push({x:o.x,y:o.y,vx:Math.cos(ang)*4,vy:Math.sin(ang)*4,size:8,type:'bullet',dead:false}); }
+                    o.dead = true; for(let k=0;k<4;k++){ let ang=Math.random()*Math.PI*2; objects.push({x:o.x,y:o.y,vx:Math.cos(ang)*4,vy:Math.sin(ang)*4,size:8,type:'bullet',dead:false}); }
                 }
-
                 let dx = player.x - o.x, dy = player.y - o.y;
                 let dist = Math.sqrt(dx*dx + dy*dy);
                 if (dist < player.r + o.size - 5) {
-                    // Daño de pompas y balas restaurado
-                    if (o.type === 'bubble' || o.type === 'bullet') { 
-                        if (invulTime <= 0) { hp--; invulTime = 1500; if(hp<=0) gameOver=true; } 
-                    }
+                    if (o.type === 'bubble' || o.type === 'bullet') { if (invulTime <= 0) { hp--; invulTime = 1500; if(hp<=0) gameOver=true; } }
                     else if (o.type === 'alga') { energy = Math.min(maxEnergy, energy+1); if(energy >= maxEnergy) { energy = 0; shootingTime = 5000; } }
                     else if (o.type === 'crab') { hp = Math.min(maxHp, hp+1); }
-                    else if (o.type === 'diamond') { 
-                        userData.diamonds++; 
-                        if(userData.diamonds >= 10) { userData.diamonds = 0; userData.trophies++; } 
-                    }
+                    else if (o.type === 'diamond') { userData.diamonds++; if(userData.diamonds >= 10) { userData.diamonds = 0; userData.trophies++; } }
                     o.dead = true;
                 }
                 if (o.y > height + 100) { if(o.type==='bubble') score++; o.dead = true; }
@@ -263,6 +266,13 @@
             drawPlayer(); update(); requestAnimationFrame(loop);
         }
 
+        function selectChar(t, req) {
+            if(userData.bestScore < req) return;
+            selectedCharacter = t;
+            document.querySelectorAll('.char-card').forEach(c => c.classList.remove('selected'));
+            document.getElementById('char-' + t).classList.add('selected');
+        }
+
         const startGame = () => {
             try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){}
             document.getElementById('bgMusic').play();
@@ -275,13 +285,16 @@
             spawn();
         };
 
-        document.getElementById('to-char-select').onclick = () => { document.getElementById('start-screen').style.display = 'none'; document.getElementById('char-select-screen').style.display = 'flex'; };
+        document.getElementById('to-char-select').onclick = () => {
+            if(score > userData.bestScore) { userData.bestScore = score; localStorage.setItem('jellyProfilesV4', JSON.stringify({ [playerName]: userData })); }
+            updateGlobalUI();
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('char-select-screen').style.display = 'flex';
+        };
         document.getElementById('play-btn').onclick = startGame;
         window.addEventListener('mousemove', e => { if(gameStarted) { player.x = e.clientX; player.y = e.clientY; } });
         window.addEventListener('touchmove', e => { if(gameStarted) { e.preventDefault(); player.x = e.touches[0].clientX; player.y = e.touches[0].clientY; } }, {passive: false});
         loop();
-        function selectChar(t) { selectedCharacter = t; document.querySelectorAll('.char-card').forEach(c => c.classList.remove('selected')); document.getElementById('char-' + t).classList.add('selected'); }
     </script>
 </body>
 </html>
-```[cite: 1]
