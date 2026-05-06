@@ -1,68 +1,86 @@
 <!DOCTYPE html>
-        ctx.beginPath();
-        ctx.moveTo(player.x-16+i*8,player.y+12);
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Jellyfish Survival: Mar de los Sargazos</title>
 
-        for(let j=0;j<4;j++){
-            let ox = Math.sin(time+i*0.8+j*0.5)*10;
-
-            ctx.quadraticCurveTo(
-                player.x-16+i*8+ox,
-                player.y+20+j*10,
-                player.x-16+i*8,
-                player.y+35+j*10
-            );
-        }
-
-        ctx.stroke();
-    }
-
-    ctx.fillStyle='#e699ff';
-    ctx.beginPath();
-    ctx.arc(player.x,player.y,player.r,Math.PI,0);
-    ctx.lineTo(player.x+player.r,player.y+15);
-    ctx.quadraticCurveTo(player.x,player.y+25,player.x-player.r,player.y+15);
-    ctx.fill();
-
-    ctx.restore();
+<style>
+body, html {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background: #000511;
+    overflow: hidden;
+    font-family: 'Segoe UI', sans-serif;
+    color: white;
 }
 
-function drawTurtle(){
+canvas {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1;
+}
 
-    let time = Date.now()*0.002;
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 5, 15, 0.7);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    text-align: center;
+    padding: 20px;
+    box-sizing: border-box;
+}
 
-    ctx.save();
-    ctx.translate(bossX,100);
+#ui {
+    position: fixed;
+    top: 20px;
+    width: 100%;
+    display: none;
+    justify-content: center;
+    gap: 15px;
+    align-items: center;
+    color: #00d4ff;
+    font-weight: bold;
+    font-size: 16px;
+    z-index: 500;
+    pointer-events: none;
+    text-shadow: 0 0 10px #00d4ff;
+    flex-wrap: wrap;
+}
 
-    ctx.fillStyle='#2d5a27';
+#inventory-bar {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    background: rgba(0,0,0,0.8);
+    display: none;
+    justify-content: center;
+    gap: 30px;
+    padding: 10px 0;
+    border-top: 2px solid #ff00ff;
+    z-index: 1000;
+    font-size: 16px;
+    text-shadow: 0 0 5px black;
+}
 
-    for(let i=0;i<4;i++){
-
-        ctx.save();
-
-        ctx.rotate((i<2?-1:1)*0.4 + Math.sin(time+i)*0.2);
-
-        ctx.translate(i<2?-50:50, i%2===0?-20:20);
-
-        ctx.scale(1,15/35);
-
-        ctx.beginPath();
-        ctx.arc(0,0,35,0,Math.PI*2);
-        ctx.fill();
-
-        ctx.restore();
-    }
-
-    let grad = ctx.createRadialGradient(0,0,10,0,0,70);
-    grad.addColorStop(0,'#4a9c43');
-    grad.addColorStop(1,'#1d3d19');
-
-    ctx.fillStyle = grad;
-
-    ctx.save();
-    ctx.scale(1,55/75);
-    ctx.beginPath();
+.inv-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     ctx.arc(0,0,75,0,Math.PI*2);
-                ctx.fill();
+            ctx.fill();
     ctx.restore();
 
     ctx.restore();
