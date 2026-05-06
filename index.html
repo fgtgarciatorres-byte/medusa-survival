@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>Jellyfish Survival: Música y Bombas</title>
+    <title>Jellyfish Survival: Expansión Algas</title>
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000511; overflow: hidden; font-family: 'Segoe UI', sans-serif; color: white; }
         canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
@@ -16,6 +16,7 @@
         #hp-fill { width: 100%; height: 100%; background: linear-gradient(90deg, #ff3300, #ff6600); transition: width 0.3s; }
         #ep-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #00ffcc, #0088ff); transition: width 0.3s; }
         button { padding: 15px 30px; background: #ff00ff; color: white; font-size: 18px; font-weight: bold; border: none; border-radius: 50px; box-shadow: 0 0 15px #ff00ff; cursor: pointer; margin: 10px; transition: 0.2s; }
+        input { padding: 12px; border-radius: 10px; border: 2px solid #00d4ff; background: rgba(0,0,0,0.6); color: yellow; font-size: 24px; font-weight: bold; text-align: center; margin: 15px 0; width: 120px; text-transform: uppercase; letter-spacing: 5px; }
         #event-alert { position: fixed; top: 100px; width: 100%; text-align: center; color: #00ffcc; font-size: 24px; font-weight: 900; display: none; text-shadow: 0 0 20px #00ffcc; z-index: 400; animation: blink 0.5s infinite; }
         @keyframes blink { 0%, 100% { opacity: 0.2; } 50% { opacity: 1; } }
     </style>
@@ -38,13 +39,19 @@
 
     <div id="start-screen" class="overlay">
         <h1 style="color:#ff00ff; font-size:40px; margin:0; text-shadow: 0 0 20px #ff00ff;">🪼 JELLYFISH</h1>
-        <button id="play-btn">¡A NADAR!</button>
+        <input type="text" id="player-name-input" placeholder="AAA" maxlength="3">
+        <button id="to-char-select">ACCEDER</button>
+    </div>
+
+    <div id="char-select-screen" class="overlay" style="display:none;">
+        <h2>SELECCIONA TU AVATAR</h2>
+        <button id="play-btn" style="background:#00d4ff; box-shadow: 0 0 15px #00d4ff;">¡A NADAR!</button>
     </div>
 
     <div id="game-over-screen" class="overlay" style="display:none;">
         <h1 style="color:#ff3300; font-size:35px; margin:0;">¡FIN DEL VIAJE!</h1>
-        <p>Puntos: <span id="final-score">0</span></p>
-        <button onclick="location.reload()">REINTENTAR</button>
+        <p>Puntos: <span id="final-score" style="color:#00d4ff; font-size: 24px; font-weight: bold;">0</span></p>
+        <button onclick="location.reload()">VOLVER AL INICIO</button>
     </div>
 
     <audio id="bgMusic" loop>
@@ -57,26 +64,52 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         let width, height;
-        const resize = () => { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; };
-        window.addEventListener('resize', resize); resize();
+        const resize = () => {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        };
+        window.addEventListener('resize', resize);
+        resize();
 
         let audioCtx, gameStarted = false, gameOver = false;
         let score = 0, hp = 3, maxHp = 3, level = 1, energy = 0, maxEnergy = 6;
-        let invulTime = 0, shootingTime = 0, lastShotFired = 0;
-        let isBossMode = false, bossX = 0, bossDir = 3, nextBossAt = 50;
+        let shieldTime = 0, invulTime = 0, shootingTime = 0, lastShotFired = 0;
+        let isBossMode = false, bossX = 0, bossDir = 3, bossShots = 0, nextBossAt = 50;
         let player = { x: 0, y: 0, r: 25 }, objects = [], particles = [];
 
         for(let i=0; i<30; i++) particles.push({ x: Math.random()*width, y: Math.random()*height, s: Math.random()*2+1, v: Math.random()*0.5+0.1 });
 
+        function playSnd(f, type='sine', d=0.15) {
+            if(!audioCtx) return;
+            try {
+                const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+                o.type = type; o.frequency.setValueAtTime(f, audioCtx.currentTime);
+                g.gain.setValueAtTime(0.04, audioCtx.currentTime);
+                o.connect(g); g.connect(audioCtx.destination);
+                o.start(); o.stop(audioCtx.currentTime + d);
+            } catch(e){}
+        }
+
         function drawBubble(o) {
             ctx.save(); ctx.fillStyle = "rgba(180, 220, 255, 0.4)";
             ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, Math.PI*2); ctx.fill();
-            ctx.strokeStyle = "rgba(255,255,255,0.7)"; ctx.stroke(); ctx.restore();
+            ctx.strokeStyle = "rgba(255,255,255,0.7)"; ctx.lineWidth = 1.5; ctx.stroke();
+            ctx.fillStyle = "rgba(255,255,255,0.5)"; ctx.beginPath(); ctx.arc(o.x - o.size/3, o.y - o.size/3, o.size/4, 0, Math.PI*2); ctx.fill();
+            ctx.restore();
+        }
+
+        function drawAlga(o) {
+            ctx.save(); ctx.translate(o.x, o.y);
+            let sway = Math.sin(Date.now() * 0.005 + o.y * 0.05) * 6;
+            ctx.fillStyle = "#33cc33"; ctx.strokeStyle = "#1a801a"; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(0, o.size);
+            ctx.quadraticCurveTo(o.size+sway, 0, sway, -o.size);
+            ctx.quadraticCurveTo(-o.size+sway, 0, 0, o.size); ctx.fill(); ctx.stroke(); ctx.restore();
         }
 
         function drawCrab(o) {
             ctx.save(); ctx.translate(o.x, o.y); ctx.fillStyle = "#e63900";
-            ctx.beginPath(); ctx.arc(0, 0, 22, 0, Math.PI*2); ctx.fill();
+            ctx.save(); ctx.scale(1, 16/22); ctx.beginPath(); ctx.arc(0, 0, 22, 0, Math.PI*2); ctx.fill(); ctx.restore();
             ctx.strokeStyle = "#e63900"; ctx.lineWidth = 3;
             for(let i=0; i<3; i++) {
                 ctx.beginPath(); ctx.moveTo(-15, 5-i*5); ctx.lineTo(-25, 10-i*5); ctx.stroke();
@@ -91,11 +124,37 @@
             ctx.fillStyle = "rgba(255, 0, 0, " + pulse + ")"; ctx.beginPath(); ctx.arc(o.x, o.y, o.size/2, 0, Math.PI*2); ctx.fill();
         }
 
+        function drawTurtle() {
+            let time = Date.now() * 0.002; ctx.save(); ctx.translate(bossX, 100);
+            ctx.shadowBlur = 20; ctx.shadowColor = "black";
+            ctx.fillStyle = "#2d5a27";
+            for(let i=0; i<4; i++) {
+                ctx.save(); ctx.rotate((i<2?-1:1)*0.4 + Math.sin(time+i)*0.2);
+                ctx.translate(i<2?-50:50, i%2===0?-20:20); ctx.scale(1, 15/35);
+                ctx.beginPath(); ctx.arc(0,0,35,0,Math.PI*2); ctx.fill(); ctx.restore();
+            }
+            let grad = ctx.createRadialGradient(0,0,10,0,0,75); grad.addColorStop(0,"#4a9c43"); grad.addColorStop(1,"#1d3d19");
+            ctx.fillStyle = grad; ctx.save(); ctx.scale(1, 55/75); ctx.beginPath(); ctx.arc(0,0,75,0,Math.PI*2); ctx.fill(); ctx.restore();
+            ctx.fillStyle = "red"; ctx.shadowBlur = 10; ctx.shadowColor = "red";
+            ctx.beginPath(); ctx.arc(-8, -75+Math.sin(time)*5, 4, 0, Math.PI*2); ctx.arc(8, -75+Math.sin(time)*5, 4, 0, Math.PI*2); ctx.fill(); ctx.restore();
+        }
+
         function drawPlayer() {
             ctx.save();
+            let time = Date.now() * 0.005;
             if (invulTime > 0 && Math.floor(Date.now()/100)%2 === 0) ctx.globalAlpha = 0.3;
             ctx.shadowBlur = 15; ctx.shadowColor = "#ff00ff";
-            ctx.fillStyle = "#e699ff"; ctx.beginPath(); ctx.arc(player.x, player.y, player.r, Math.PI, 0); ctx.fill();
+            ctx.strokeStyle = "rgba(230, 180, 255, 0.8)"; ctx.lineWidth = 3.5;
+            for(let i=0; i<5; i++) {
+                ctx.beginPath(); ctx.moveTo(player.x - 16 + i*8, player.y + 12);
+                for(let j=0; j<4; j++) {
+                    let ox = Math.sin(time + i*0.8 + j*0.5) * 10;
+                    ctx.quadraticCurveTo(player.x-16+i*8+ox, player.y+20+j*10, player.x-16+i*8, player.y+35+j*10);
+                }
+                ctx.stroke();
+            }
+            ctx.fillStyle = "#e699ff"; ctx.beginPath(); ctx.arc(player.x, player.y, player.r, Math.PI, 0);
+            ctx.lineTo(player.x+player.r, player.y+15); ctx.quadraticCurveTo(player.x, player.y+25, player.x-player.r, player.y+15); ctx.fill();
             ctx.fillStyle = "white"; ctx.beginPath(); ctx.arc(player.x-8, player.y-5, 5, 0, Math.PI*2); ctx.arc(player.x+8, player.y-5, 5, 0, Math.PI*2); ctx.fill();
             ctx.fillStyle = "black"; ctx.beginPath(); ctx.arc(player.x-8, player.y-5, 2.5, 0, Math.PI*2); ctx.arc(player.x+8, player.y-5, 2.5, 0, Math.PI*2); ctx.fill();
             ctx.restore();
@@ -104,92 +163,151 @@
         function spawn() {
             if (gameOver || !gameStarted || isBossMode) return;
             let r = Math.random();
-            let type = (r > 0.98) ? 'crab' : (r > 0.90 ? 'bomb' : (r > 0.80 ? 'alga' : 'bubble'));
+            // Restauradas las probabilidades originales: cangrejo y bombas explosivas
+            let type = (r > 0.98) ? 'crab' : (r > 0.90 ? 'bomb' : (r > 0.80 ? 'alga' : (r > 0.70 ? 'star' : 'bubble')));
             objects.push({ 
                 x: type === 'crab' ? -50 : Math.random()*width, 
                 y: type === 'crab' ? height*0.85 : -50, 
                 vx: type === 'crab' ? 2.5 : (Math.random()-0.5)*2, 
-                vy: type === 'crab' ? 0 : 2 + level*0.4, 
-                size: 20, type: type, t: 120, dead: false 
+                vy: type === 'crab' ? 0 : 2.5 + level*0.4, 
+                size: 22, type: type, t: 120, dead: false 
             });
             setTimeout(spawn, Math.max(300, 1100 - (level * 70)));
+        }
+
+        function spawnBossShot() {
+            if (!isBossMode || gameOver) return;
+            let angle = Math.atan2(player.y - 130, player.x - bossX);
+            objects.push({ x: bossX, y: 130, vx: Math.cos(angle)*6, vy: Math.sin(angle)*6, size: 15, type: 'bullet', dead: false });
+            bossShots--;
+            if (bossShots > 0) setTimeout(spawnBossShot, 800);
+            else { setTimeout(() => { isBossMode = false; nextBossAt += 100; document.getElementById('event-alert').style.display = 'none'; level++; spawn(); }, 3000); }
         }
 
         function update() {
             if(!gameStarted || gameOver) return;
             level = Math.floor(score/40) + 1;
-            invulTime = Math.max(0, invulTime - 16);
 
             if (shootingTime > 0) {
                 shootingTime -= 16;
                 if (Date.now() - lastShotFired > 300) {
                     objects.push({ x: player.x, y: player.y - player.r, vx: 0, vy: -10, size: 6, type: 'playerBullet', dead: false });
-                    lastShotFired = Date.now();
+                    lastShotFired = Date.now(); playSnd(1200, 'square', 0.05);
+                }
+            }
+
+            if (score >= nextBossAt && !isBossMode) {
+                isBossMode = true; bossShots = 10 + level; bossX = width/2;
+                document.getElementById('event-alert').innerText = "¡JEFE TORTUGA!";
+                document.getElementById('event-alert').style.display = 'block';
+                objects = []; setTimeout(spawnBossShot, 2000);
+            }
+            if (isBossMode) { bossX += bossDir; if(bossX > width-80 || bossX < 80) bossDir *= -1; }
+
+            invulTime = Math.max(0, invulTime - 16); shieldTime = Math.max(0, shieldTime - 16);
+
+            // Interacción Disparo -> Pompa/Bomba
+            for (let i = 0; i < objects.length; i++) {
+                let pb = objects[i];
+                if (pb.dead || pb.type !== 'playerBullet') continue;
+                for (let j = 0; j < objects.length; j++) {
+                    let target = objects[j];
+                    if (target.dead || (target.type !== 'bubble' && target.type !== 'bomb')) continue;
+                    let dx = pb.x - target.x;
+                    let dy = pb.y - target.y;
+                    if (Math.sqrt(dx*dx + dy*dy) < pb.size + target.size) {
+                        pb.dead = true;
+                        target.dead = true;
+                        score += 5;
+                        playSnd(400, 'sine', 0.05);
+                        break;
+                    }
                 }
             }
 
             objects.forEach(o => {
+                if (o.dead) return;
                 o.x += o.vx; o.y += o.vy;
-                if (o.type === 'bomb' && --o.t <= 0) { 
+
+                // Lógica de explosión de bomba
+                if (o.type === 'bomb' && --o.t <= 0) {
                     for(let k=0; k<4; k++) {
                         let ang = Math.random() * Math.PI * 2;
                         objects.push({x:o.x, y:o.y, vx:Math.cos(ang)*4, vy:Math.sin(ang)*4, size:8, type:'bullet', dead: false});
                     }
-                    o.dead = true; 
+                    o.dead = true;
                 }
 
                 let dx = player.x - o.x, dy = player.y - o.y;
-                if (Math.sqrt(dx*dx + dy*dy) < player.r + o.size - 5) {
+                let dist = Math.sqrt(dx*dx + dy*dy);
+
+                if (dist < player.r + o.size - 5) {
                     if (o.type === 'bubble' || o.type === 'bullet') {
-                        if (invulTime <= 0) { hp--; invulTime = 1500; if(hp<=0) gameOver=true; }
-                    } else if (o.type === 'crab') { hp = Math.min(maxHp, hp+1); }
-                    else if (o.type === 'alga') { 
-                        energy++; 
-                        if(energy >= maxEnergy) { energy = 0; shootingTime = 5000; }
-                    }
+                        if (invulTime <= 0) { hp--; invulTime = 1500; playSnd(100, 'sawtooth'); if(hp<=0) gameOver=true; }
+                    } else if (o.type === 'alga') {
+                        energy++; playSnd(900);
+                        if(energy >= maxEnergy) { energy = 0; shootingTime = 5000; document.getElementById('event-alert').innerText = "¡PODER MÁXIMO!"; document.getElementById('event-alert').style.display = 'block'; setTimeout(()=>document.getElementById('event-alert').style.display='none', 2000); }
+                    } else if (o.type === 'star') { score += 5; playSnd(1100); }
+                    else if (o.type === 'crab') { hp = Math.min(maxHp, hp + 1); playSnd(600); }
                     o.dead = true;
                 }
+                
+                if (o.type === 'playerBullet' && isBossMode) {
+                    let bdx = bossX - o.x, bdy = 100 - o.y;
+                    if (Math.sqrt(bdx*bdx + bdy*bdy) < 80) { score += 2; o.dead = true; playSnd(400, 'sine', 0.05); }
+                }
+                if (o.y > height + 100 || o.y < -100 || o.x > width + 100 || o.x < -100) o.dead = true;
             });
+            objects = objects.filter(o => !o.dead);
 
-            // COLISIÓN DISPARO -> POMPA/BOMBA
-            objects.filter(b => b.type === 'playerBullet').forEach(b => {
-                objects.filter(t => t.type === 'bubble' || t.type === 'bomb').forEach(t => {
-                    let dx = b.x - t.x, dy = b.y - t.y;
-                    if (Math.sqrt(dx*dx + dy*dy) < b.size + t.size) {
-                        t.dead = true; b.dead = true; score += 5;
-                    }
-                });
-            });
-
-            objects = objects.filter(o => !o.dead && o.y < height + 100 && o.x < width + 100);
             document.getElementById('score').innerText = score;
+            document.getElementById('level').innerText = level;
             document.getElementById('hp-fill').style.width = (hp/maxHp*100) + '%';
             document.getElementById('ep-fill').style.width = (energy/maxEnergy*100) + '%';
             if(gameOver) { document.getElementById('final-score').innerText = score; document.getElementById('game-over-screen').style.display = 'flex'; }
         }
 
         function loop() {
-            ctx.fillStyle = "#000511"; ctx.fillRect(0,0,width,height);
-            particles.forEach(p => { p.y += p.v; if(p.y > height) p.y = 0; ctx.fillStyle = "rgba(255,255,255,0.1)"; ctx.beginPath(); ctx.arc(p.x, p.y, p.s, 0, Math.PI*2); ctx.fill(); });
+            let bgHue = 220 + (level * 8);
+            ctx.fillStyle = isBossMode ? "#1a0505" : "hsl(" + Math.min(bgHue, 360) + ", 100%, 8%)";
+            ctx.fillRect(0,0,width,height);
+            particles.forEach(p => {
+                p.y += p.v; if(p.y > height) p.y = 0;
+                ctx.fillStyle = "rgba(255,255,255,0.15)"; ctx.beginPath(); ctx.arc(p.x, p.y, p.s, 0, Math.PI*2); ctx.fill();
+            });
+            if(isBossMode) drawTurtle();
             objects.forEach(o => {
                 if(o.type === 'bubble') drawBubble(o);
+                else if(o.type === 'alga') drawAlga(o);
                 else if(o.type === 'crab') drawCrab(o);
                 else if(o.type === 'bomb') drawBomb(o);
-                else if(o.type === 'playerBullet') { ctx.fillStyle = "cyan"; ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, Math.PI*2); ctx.fill(); }
-                else if(o.type === 'bullet') { ctx.fillStyle = "red"; ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, Math.PI*2); ctx.fill(); }
+                else if(o.type === 'bullet') { ctx.fillStyle = "red"; ctx.shadowBlur = 10; ctx.shadowColor = "red"; ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, Math.PI*2); ctx.fill(); ctx.shadowBlur = 0; }
+                else if(o.type === 'playerBullet') { ctx.fillStyle = "#00ffff"; ctx.shadowBlur = 10; ctx.shadowColor = "cyan"; ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, Math.PI*2); ctx.fill(); ctx.shadowBlur = 0; }
+                else if(o.type === 'star') { ctx.fillStyle = "yellow"; ctx.beginPath(); ctx.arc(o.x, o.y, 10, 0, Math.PI*2); ctx.fill(); }
             });
+            if(!gameStarted) { player.x = width/2; player.y = height*0.7 + Math.sin(Date.now()*0.002)*15; }
             drawPlayer(); update(); requestAnimationFrame(loop);
         }
 
-        document.getElementById('play-btn').onclick = () => { 
-            document.getElementById('bgMusic').play(); 
-            gameStarted = true; document.getElementById('start-screen').style.display = 'none'; 
-            document.getElementById('ui').style.display = 'flex'; spawn(); 
+        const startGame = () => {
+            try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){}
+            document.getElementById('bgMusic').play();
+            gameStarted = true; gameOver = false; score = 0; hp = 3; energy = 0;
+            player.x = width/2; player.y = height*0.8; objects = [];
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('char-select-screen').style.display = 'none';
+            document.getElementById('ui').style.display = 'flex';
+            spawn();
         };
+
+        document.getElementById('to-char-select').onclick = () => {
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('char-select-screen').style.display = 'flex';
+        };
+        document.getElementById('play-btn').onclick = startGame;
         window.addEventListener('mousemove', e => { if(gameStarted) { player.x = e.clientX; player.y = e.clientY; } });
-        window.addEventListener('touchmove', e => { if(gameStarted) { player.x = e.touches[0].clientX; player.y = e.touches[0].clientY; } });
+        window.addEventListener('touchmove', e => { if(gameStarted) { e.preventDefault(); player.x = e.touches[0].clientX; player.y = e.touches[0].clientY; } }, {passive: false});
         loop();
     </script>
 </body>
 </html>
-```[cite: 1]
