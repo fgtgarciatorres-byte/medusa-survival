@@ -16,9 +16,9 @@
         .bar { width: 60px; height: 12px; background: rgba(255,255,255,0.1); border-radius: 8px; overflow: hidden; }
         #hp-fill { width: 100%; height: 100%; background: linear-gradient(90deg, #ff3300, #ff6600); transition: width 0.3s; }
         #ep-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #00ffcc, #0088ff); transition: width 0.3s; }
-        button { padding: 15px 30px; background: #ff00ff; color: white; font-size: 18px; font-weight: bold; border: none; border-radius: 50px; box-shadow: 0 0 15px #ff00ff; cursor: pointer; margin: 10px; }
+        button { padding: 15px 30px; background: #ff00ff; color: white; font-size: 18px; font-weight: bold; border: none; border-radius: 50px; box-shadow: 0 0 15px #ff00ff; cursor: pointer; margin: 10px; transition: 0.2s; }
         input { padding: 12px; border-radius: 10px; border: 2px solid #00d4ff; background: rgba(0,0,0,0.6); color: yellow; font-size: 24px; font-weight: bold; text-align: center; margin: 15px 0; width: 120px; text-transform: uppercase; letter-spacing: 5px; }
-        .char-grid { display: flex; gap: 15px; margin: 20px 0; flex-wrap: wrap; justify-content: center; }
+        .char-grid { display: flex; gap: 15px; margin: 20px 0; flex-wrap: wrap; justify-content: center; z-index: 10001; }
         .char-card { background: rgba(255,255,255,0.05); border: 2px solid #444; padding: 15px; border-radius: 15px; width: 100px; cursor: pointer; position: relative; }
         .char-card.selected { border-color: #00d4ff; background: rgba(0, 212, 255, 0.1); }
         .char-card.locked { opacity: 0.5; cursor: not-allowed; }
@@ -29,186 +29,201 @@
 </head>
 <body>
 
-<div id="ui">
-    <div>PTS: <span id="score">0</span></div>
-    <div style="display:flex;align-items:center;gap:5px;">❤️<div class="bar-container"><div class="bar"><div id="hp-fill"></div></div></div></div>
-    <div style="display:flex;align-items:center;gap:5px;color:#00ffcc;">⚡<div class="bar-container" style="border-color:#00ffcc;"><div class="bar"><div id="ep-fill"></div></div></div></div>
-    <div>LVL: <span id="level">1</span></div>
-</div>
-
-<div id="inventory-bar">
-    <div class="inv-item">💎 <span id="inv-diamonds">0</span> / 10</div>
-    <div class="inv-item">🏆 <span id="inv-trophies">0</span></div>
-</div>
-
-<div id="event-alert">¡ENERGÍA AL MÁXIMO!</div>
-
-<div id="start-screen" class="overlay">
-    <h1 style="color:#ff00ff;font-size:40px;margin:0;text-shadow:0 0 20px #ff00ff;">🪼 JELLYFISH</h1>
-    <input type="text" id="player-name-input" placeholder="AAA" maxlength="3">
-    <button id="to-char-select">ACCEDER</button>
-</div>
-
-<div id="char-select-screen" class="overlay" style="display:none;">
-    <h2>SELECCIONA TU AVATAR</h2>
-    <div class="char-grid">
-        <div id="char-jellyfish" class="char-card selected" onclick="selectChar('jellyfish',0)">
-            <div style="font-size:30px">🪼</div><p>Medusa</p>
-        </div>
-        <div id="char-crab" class="char-card locked" onclick="selectChar('crab',150)">
-            <div style="font-size:30px">🦀</div><p>Cangrejo</p>
-        </div>
-        <div id="char-octopus" class="char-card locked" onclick="selectChar('octopus',250)">
-            <div style="font-size:30px">🐙</div><p>Pulpo</p>
-        </div>
+    <div id="ui">
+        <div>PTS: <span id="score">0</span></div>
+        <div style="display:flex; align-items:center; gap:5px;">❤️<div class="bar-container"><div class="bar"><div id="hp-fill"></div></div></div></div>
+        <div style="display:flex; align-items:center; gap:5px; color:#00ffcc;">⚡<div class="bar-container" style="border-color:#00ffcc;"><div class="bar"><div id="ep-fill"></div></div></div></div>
+        <div>LVL: <span id="level">1</span></div>
     </div>
-    <button id="play-btn" style="background:#00d4ff;box-shadow:0 0 15px #00d4ff;">¡A NADAR!</button>
-</div>
 
-<div id="game-over-screen" class="overlay" style="display:none;">
-    <h1 style="color:#ff3300; font-size:35px; margin:0;">¡FIN DEL VIAJE!</h1>
-    <p>Puntos: <span id="final-score" style="color:#00d4ff; font-size: 24px; font-weight: bold;">0</span></p>
-    <button onclick="location.reload()">VOLVER AL INICIO</button>
-</div>
+    <div id="inventory-bar">
+        <div class="inv-item">💎 <span id="inv-diamonds">0</span> / 10</div>
+        <div class="inv-item">🏆 <span id="inv-trophies">0</span></div>
+    </div>
 
-<audio id="bgMusic" loop><source src="Button_Bop_Logic.mp3" type="audio/mpeg"></audio>
-<canvas id="gameCanvas"></canvas>
+    <div id="event-alert">¡ENERGÍA AL MÁXIMO!</div>
 
-<script>
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-let width, height;
-function resize(){ width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; }
-window.addEventListener('resize', resize); resize();
+    <div id="start-screen" class="overlay">
+        <h1 style="color:#ff00ff; font-size:40px; margin:0; text-shadow: 0 0 20px #ff00ff;">🪼 JELLYFISH</h1>
+        <input type="text" id="player-name-input" placeholder="AAA" maxlength="3">
+        <button id="to-char-select">ACCEDER</button>
+    </div>
 
-let audioCtx, gameStarted = false, gameOver = false, score = 0, hp = 3, maxHp = 3, level = 1, energy = 0, maxEnergy = 6;
-let invulTime = 0, shootingTime = 0, lastShotFired = 0, isBossMode = false, bossX = 0, bossDir = 3, bossShots = 0, nextBossAt = 50;
-let turtleBossDefeats = 0, sargassoMode = false, sharkBossMode = false, nextSharkBossAt = 50;
-let player = { x: 0, y: 0, r: 25 }, objects = [], particles = [], backgroundSeaweed = [];
-let selectedCharacter = 'jellyfish', userData = { diamonds: 0, trophies: 0, bestScore: 0 };
+    <div id="char-select-screen" class="overlay" style="display:none;">
+        <h2>SELECCIONA TU AVATAR</h2>
+        <div class="char-grid" id="char-grid">
+            <div id="char-jellyfish" class="char-card selected" onclick="selectChar('jellyfish', 0)">
+                <div style="font-size:30px">🪼</div><p>Medusa</p>
+            </div>
+            <div id="char-crab" class="char-card locked" onclick="selectChar('crab', 150)">
+                <div style="font-size:30px">🦀</div><p>Cangrejo</p>
+            </div>
+            <div id="char-octopus" class="char-card locked" onclick="selectChar('octopus', 250)">
+                <div style="font-size:30px">🐙</div><p>Pulpo</p>
+            </div>
+        </div>
+        <button id="play-btn" style="background:#00d4ff; box-shadow: 0 0 15px #00d4ff;">¡A NADAR!</button>
+    </div>
 
-for(let i=0; i<30; i++) particles.push({ x: Math.random()*width, y: Math.random()*height, s: Math.random()*2+1, v: Math.random()*0.5+0.1 });
-for(let i=0; i<15; i++) backgroundSeaweed.push({ x: Math.random()*width, h: 100+Math.random()*200, sway: Math.random()*Math.PI*2 });
+    <div id="game-over-screen" class="overlay" style="display:none;">
+        <h1 style="color:#ff3300; font-size:35px; margin:0;">¡FIN DEL VIAJE!</h1>
+        <p>Puntos: <span id="final-score" style="color:#00d4ff; font-size: 24px; font-weight: bold;">0</span></p>
+        <button onclick="location.reload()">VOLVER AL INICIO</button>
+    </div>
 
-function playSnd(f, type='sine', d=0.15) {
-    if(!audioCtx) return;
-    try {
-        const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-        o.type = type; o.frequency.setValueAtTime(f, audioCtx.currentTime);
-        g.gain.setValueAtTime(0.04, audioCtx.currentTime);
-        o.connect(g); g.connect(audioCtx.destination);
-        o.start(); o.stop(audioCtx.currentTime + d);
-    } catch(e){}
-}
+    <audio id="bgMusic" loop><source src="Button_Bop_Logic.mp3" type="audio/mpeg"></audio>
+    <canvas id="gameCanvas"></canvas>
 
-function spawnBossShot() {
-    if ((!isBossMode && !sharkBossMode) || gameOver) return;
-    let angle = Math.atan2(player.y - 130, player.x - bossX);
-    objects.push({ x: bossX, y: 130, vx: Math.cos(angle)*6, vy: Math.sin(angle)*6, size: 15, type: 'bullet', dead: false });
-    bossShots--;
-    if (bossShots > 0) setTimeout(spawnBossShot, 800);
-    else {
-        setTimeout(() => {
-            if (isBossMode) {
-                isBossMode = false; turtleBossDefeats++;
-                if (turtleBossDefeats >= 2) { sargassoMode = true; document.getElementById('event-alert').innerText = 'MAR DE LOS SARGAZOS'; document.getElementById('event-alert').style.display = 'block'; setTimeout(()=>document.getElementById('event-alert').style.display='none', 3000); }
-                nextBossAt += 100;
-            } else if (sharkBossMode) { sharkBossMode = false; nextSharkBossAt += 100; }
-            document.getElementById('event-alert').style.display = 'none'; spawn();
-        }, 3000);
-    }
-}
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+        const resize = () => { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; };
+        window.addEventListener('resize', resize); resize();
 
-function drawPlayer() {
-    ctx.save(); let time = Date.now()*0.005;
-    if (invulTime > 0 && Math.floor(Date.now()/100)%2 === 0) ctx.globalAlpha = 0.3;
-    ctx.shadowBlur = 15; ctx.shadowColor = "#ff00ff";
-    ctx.strokeStyle='rgba(230,180,255,0.8)'; ctx.lineWidth=3.5;
-    for(let i=0; i<5; i++) {
-        ctx.beginPath(); ctx.moveTo(player.x-16+i*8, player.y+12);
-        for(let j=0; j<4; j++) {
-            let ox = Math.sin(time+i*0.8+j*0.5)*10;
-            ctx.quadraticCurveTo(player.x-16+i*8+ox, player.y+20+j*10, player.x-16+i*8, player.y+35+j*10);
+        let audioCtx, gameStarted = false, gameOver = false;
+        let score = 0, hp = 3, maxHp = 3, level = 1, energy = 0, maxEnergy = 6;
+        let invulTime = 0, shootingTime = 0, lastShotFired = 0, bossX = 0, bossDir = 3;
+        let turtleDefeats = 0, sargassoMode = false, isBossMode = false, sharkBossMode = false;
+        let player = { x: 0, y: 0, r: 25 }, objects = [], particles = [], backgroundSeaweed = [];
+        let userData = { diamonds: 0, trophies: 0, bestScore: 0 };
+
+        for(let i=0; i<30; i++) particles.push({ x: Math.random()*width, y: Math.random()*height, s: Math.random()*2+1, v: Math.random()*0.5+0.1 });
+        for(let i=0; i<20; i++) backgroundSeaweed.push({ x: Math.random()*width, h: 150+Math.random()*250, sway: Math.random()*Math.PI*2 });
+
+        function drawBubble(o) {
+            ctx.save(); ctx.fillStyle = "rgba(180, 220, 255, 0.4)";
+            ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle = "rgba(255,255,255,0.7)"; ctx.stroke(); ctx.restore();
         }
-        ctx.stroke();
-    }
-    ctx.fillStyle='#e699ff'; ctx.beginPath(); ctx.arc(player.x, player.y, player.r, Math.PI, 0);
-    ctx.lineTo(player.x+player.r, player.y+15); ctx.quadraticCurveTo(player.x, player.y+25, player.x-player.r, player.y+15); ctx.fill();
-    ctx.fillStyle="white"; ctx.beginPath(); ctx.arc(player.x-8, player.y-5, 5, 0, Math.PI*2); ctx.arc(player.x+8, player.y-5, 5, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle="black"; ctx.beginPath(); ctx.arc(player.x-8, player.y-5, 2, 0, Math.PI*2); ctx.arc(player.x+8, player.y-5, 2, 0, Math.PI*2); ctx.fill();
-    ctx.restore();
-}
 
-function spawn() {
-    if(gameOver || !gameStarted || isBossMode || sharkBossMode) return;
-    let r = Math.random(), type;
-    if(sargassoMode) {
-        type = r > 0.90 ? 'explosiveShark' : (r > 0.60 ? 'smallShark' : (r > 0.40 ? 'alga' : 'star'));
-    } else {
-        type = r > 0.96 ? 'crab' : (r > 0.90 ? 'bomb' : (r > 0.80 ? 'alga' : (r > 0.70 ? 'star' : 'bubble')));
-    }
-    if(type==='smallShark' || type==='explosiveShark') {
-        let fromLeft = Math.random()>0.5;
-        objects.push({ x: fromLeft ? -80 : width+80, y: 150+Math.random()*(height-300), vx: fromLeft?4:-4, vy:0, size:30, type: type, dead:false });
-    } else {
-        objects.push({ x: type==='crab'?-50:Math.random()*width, y: -50, vx: (Math.random()-0.5)*2, vy: 2.5+level*0.4, size: 22, type: type, dead: false });
-    }
-    setTimeout(spawn, Math.max(300, 1100-(level*70)));
-}
-
-function update() {
-    if(!gameStarted || gameOver) return;
-    level = Math.floor(score/40) + 1;
-    if(score >= nextBossAt && !isBossMode && !sargassoMode) {
-        isBossMode = true; bossShots = 10 + level; bossX = width/2; objects = [];
-        document.getElementById('event-alert').innerText = '🐢 JEFE TORTUGA'; document.getElementById('event-alert').style.display = 'block'; setTimeout(spawnBossShot, 2000);
-    }
-    if(sargassoMode && score >= nextSharkBossAt && !sharkBossMode) {
-        sharkBossMode = true; bossShots = 20; bossX = width/2; objects = [];
-        document.getElementById('event-alert').innerText = '🦈 MEGALODÓN'; document.getElementById('event-alert').style.display = 'block'; setTimeout(spawnBossShot, 2000);
-    }
-    if(isBossMode || sharkBossMode) { bossX += bossDir; if(bossX > width-100 || bossX < 100) bossDir *= -1; }
-    invulTime = Math.max(0, invulTime-16);
-    objects.forEach(o => {
-        o.x += o.vx; o.y += o.vy;
-        let dx = player.x - o.x, dy = player.y - o.y, dist = Math.sqrt(dx*dx + dy*dy);
-        if(dist < player.r + o.size - 5) {
-            if(['bubble', 'bullet', 'smallShark', 'explosiveShark', 'bomb'].includes(o.type)) {
-                if(invulTime <= 0) { hp--; invulTime = 1500; playSnd(100, 'sawtooth'); if(hp <= 0) { gameOver = true; document.getElementById('game-over-screen').style.display = 'flex'; document.getElementById('final-score').innerText = score; } }
-            } else if(o.type === 'alga') { energy = Math.min(maxEnergy, energy+1); if(energy >= maxEnergy) energy = 0; }
-            o.dead = true;
+        function drawAlga(o) {
+            ctx.save(); ctx.translate(o.x, o.y);
+            let sway = Math.sin(Date.now() * 0.005 + o.y * 0.05) * 6;
+            ctx.fillStyle = "#33cc33"; ctx.beginPath();
+            ctx.moveTo(0, o.size); ctx.quadraticCurveTo(o.size+sway, 0, sway, -o.size);
+            ctx.quadraticCurveTo(-o.size+sway, 0, 0, o.size); ctx.fill(); ctx.restore();
         }
-        if(o.y > height + 100 && o.type === 'bubble') { score++; o.dead = true; }
-    });
-    objects = objects.filter(o => !o.dead);
-    document.getElementById('score').innerText = score;
-    document.getElementById('hp-fill').style.width = (hp/maxHp*100)+'%';
-    document.getElementById('ep-fill').style.width = (energy/maxEnergy*100)+'%';
-}
 
-function loop() {
-    ctx.fillStyle = sargassoMode ? "#02191c" : "#000511"; ctx.fillRect(0,0,width,height);
-    if(sargassoMode) {
-        backgroundSeaweed.forEach(s => {
-            let sway = Math.sin(Date.now()*0.002 + s.sway)*20;
-            ctx.strokeStyle="#4caf50"; ctx.lineWidth=8; ctx.beginPath();
-            ctx.moveTo(s.x, height); ctx.quadraticCurveTo(s.x+sway, height-s.h/2, s.x+sway/2, height-s.h); ctx.stroke();
-        });
-    }
-    particles.forEach(p => { p.y += p.v; if(p.y > height) p.y = 0; ctx.fillStyle='rgba(255,255,255,0.1)'; ctx.beginPath(); ctx.arc(p.x, p.y, p.s, 0, Math.PI*2); ctx.fill(); });
-    objects.forEach(o => {
-        if(o.type==='bubble') { ctx.fillStyle="rgba(180,220,255,0.4)"; ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, Math.PI*2); ctx.fill(); }
-        else if(o.type==='smallShark') { ctx.fillStyle="gray"; ctx.beginPath(); ctx.ellipse(o.x, o.y, o.size, o.size/2, 0, 0, Math.PI*2); ctx.fill(); }
-    });
-    if(!gameStarted) { player.x = width/2; player.y = height*0.7 + Math.sin(Date.now()*0.002)*15; }
-    drawPlayer(); update(); requestAnimationFrame(loop);
-}
+        function drawCrab(o) {
+            ctx.save(); ctx.translate(o.x, o.y); ctx.fillStyle = "#e63900";
+            ctx.beginPath(); ctx.arc(0, 0, o.size, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle = "#e63900"; ctx.lineWidth = 3;
+            for(let i=0; i<3; i++) {
+                ctx.beginPath(); ctx.moveTo(-15, 5-i*5); ctx.lineTo(-25, 10-i*5); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(15, 5-i*5); ctx.lineTo(25, 10-i*5); ctx.stroke();
+            }
+            ctx.restore();
+        }
 
-document.getElementById('to-char-select').onclick = () => { document.getElementById('start-screen').style.display='none'; document.getElementById('char-select-screen').style.display='flex'; };
-document.getElementById('play-btn').onclick = () => { try{ audioCtx = new AudioContext(); }catch(e){} document.getElementById('bgMusic').play(); gameStarted = true; document.getElementById('char-select-screen').style.display='none'; document.getElementById('ui').style.display='flex'; document.getElementById('inventory-bar').style.display='flex'; player.x = width/2; player.y = height*0.8; spawn(); };
-window.addEventListener('mousemove', e => { if(gameStarted) { player.x = e.clientX; player.y = e.clientY; } });
-window.addEventListener('touchmove', e => { if(gameStarted) { e.preventDefault(); player.x = e.touches[0].clientX; player.y = e.touches[0].clientY; } }, {passive: false});
-loop();
-</script>
+        function drawStar(o) {
+            ctx.save(); ctx.fillStyle = "yellow"; ctx.beginPath(); ctx.arc(o.x, o.y, 10, 0, Math.PI*2); ctx.fill(); ctx.restore();
+        }
+
+        function drawBomb(o) {
+            ctx.save(); ctx.fillStyle = "#333"; ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, Math.PI*2); ctx.fill();
+            let p = Math.abs(Math.sin(Date.now()*0.01)); ctx.fillStyle="rgba(255,0,0,"+p+")"; ctx.beginPath(); ctx.arc(o.x,o.y,o.size/2,0,Math.PI*2); ctx.fill(); ctx.restore();
+        }
+
+        function drawShark(o) {
+            ctx.save(); ctx.fillStyle = o.type === 'explosiveShark' ? (Math.floor(Date.now()/100)%2 ? "red":"gray") : "gray";
+            ctx.beginPath(); ctx.ellipse(o.x, o.y, 30, 15, 0, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(o.x, o.y-5); ctx.lineTo(o.x - (o.vx>0?20:-20), o.y-25); ctx.lineTo(o.x + (o.vx>0?10:-10), o.y); ctx.fill(); ctx.restore();
+        }
+
+        function drawPlayer() {
+            ctx.save(); let t = Date.now()*0.005; if(invulTime>0 && Math.floor(Date.now()/100)%2===0) ctx.globalAlpha=0.3;
+            ctx.shadowBlur=15; ctx.shadowColor="#ff00ff"; ctx.strokeStyle="rgba(230,180,255,0.8)"; ctx.lineWidth=3.5;
+            for(let i=0;i<5;i++){
+                ctx.beginPath(); ctx.moveTo(player.x-16+i*8,player.y+12);
+                for(let j=0;j<4;j++) ctx.quadraticCurveTo(player.x-16+i*8+Math.sin(t+i*0.8+j*0.5)*10, player.y+20+j*10, player.x-16+i*8, player.y+35+j*10);
+                ctx.stroke();
+            }
+            ctx.fillStyle="#e699ff"; ctx.beginPath(); ctx.arc(player.x,player.y,player.r,Math.PI,0);
+            ctx.lineTo(player.x+player.r,player.y+15); ctx.quadraticCurveTo(player.x,player.y+25,player.x-player.r,player.y+15); ctx.fill();
+            ctx.fillStyle="white"; ctx.beginPath(); ctx.arc(player.x-8,player.y-5,5,0,Math.PI*2); ctx.arc(player.x+8,player.y-5,5,0,Math.PI*2); ctx.fill();
+            ctx.fillStyle="black"; ctx.beginPath(); ctx.arc(player.x-8,player.y-5,2,0,Math.PI*2); ctx.arc(player.x+8,player.y-5,2,0,Math.PI*2); ctx.fill();
+            ctx.restore();
+        }
+
+        function spawn() {
+            if(gameOver || !gameStarted || isBossMode || sharkBossMode) return;
+            let r = Math.random(), type;
+            if(sargassoMode) {
+                type = r > 0.90 ? 'explosiveShark' : (r > 0.60 ? 'smallShark' : (r > 0.50 ? 'alga' : 'star'));
+            } else {
+                type = r > 0.98 ? 'crab' : (r > 0.90 ? 'bomb' : (r > 0.80 ? 'alga' : (r > 0.70 ? 'star' : 'bubble')));
+            }
+            if(type.includes('Shark')){
+                let side = Math.random() > 0.5;
+                objects.push({ x: side?-50:width+50, y: 150+Math.random()*(height-300), vx: side?4:-4, vy: 0, size: 25, type: type, t: 120, dead: false });
+            } else {
+                objects.push({ x: type==='crab'?-50:Math.random()*width, y: type==='crab'?height*0.85:-50, vx: type==='crab'?2.5:(Math.random()-0.5)*2, vy: type==='crab'?0:2.5+level*0.4, size: 22, type: type, t: 120, dead: false });
+            }
+            setTimeout(spawn, Math.max(300, 1100-(level*70)));
+        }
+
+        function update() {
+            if(!gameStarted || gameOver) return;
+            level = Math.floor(score/40)+1;
+            if(!sargassoMode && score >= 50 && turtleDefeats < 2 && !isBossMode) {
+                isBossMode = true; bossX = width/2; objects = []; document.getElementById('event-alert').innerText="🐢 JEFE TORTUGA"; document.getElementById('event-alert').style.display='block';
+                setTimeout(() => { isBossMode = false; turtleDefeats++; if(turtleDefeats>=2){ sargassoMode=true; document.getElementById('event-alert').innerText="MAR DE LOS SARGAZOS"; } else { document.getElementById('event-alert').style.display='none'; } spawn(); }, 5000);
+            }
+            if(sargassoMode && score >= 50 && !sharkBossMode) {
+                sharkBossMode = true; bossX = width/2; objects = []; document.getElementById('event-alert').innerText="🦈 GRAN TIBURÓN"; document.getElementById('event-alert').style.display='block';
+            }
+            invulTime = Math.max(0, invulTime-16);
+            objects.forEach(o => {
+                o.x += o.vx; o.y += o.vy;
+                if(o.type==='bomb' && --o.t<=0) o.dead = true;
+                let dx = player.x-o.x, dy = player.y-o.y, dist = Math.sqrt(dx*dx+dy*dy);
+                if(dist < player.r+o.size-5) {
+                    if(['bubble','bullet','smallShark','explosiveShark','bomb'].includes(o.type)) {
+                        if(invulTime<=0){ hp--; invulTime=1500; if(hp<=0){ gameOver=true; document.getElementById('game-over-screen').style.display='flex'; document.getElementById('final-score').innerText=score; } }
+                    } else if(o.type==='alga') { energy=Math.min(maxEnergy,energy+1); }
+                    else if(o.type==='crab') { hp=Math.min(maxHp,hp+1); }
+                    else if(o.type==='star') score+=5;
+                    o.dead = true;
+                }
+                if(o.y > height + 100 && o.type==='bubble') { score++; o.dead = true; }
+            });
+            objects = objects.filter(o => !o.dead);
+            document.getElementById('score').innerText = score;
+            document.getElementById('hp-fill').style.width = (hp/maxHp*100)+'%';
+            document.getElementById('ep-fill').style.width = (energy/maxEnergy*100)+'%';
+        }
+
+        function loop() {
+            if(sargassoMode) {
+                ctx.fillStyle = "#02191c"; ctx.fillRect(0,0,width,height);
+                backgroundSeaweed.forEach(s => {
+                    let w = Math.sin(Date.now()*0.002 + s.sway)*20;
+                    ctx.strokeStyle="#4caf50"; ctx.lineWidth=8; ctx.beginPath();
+                    ctx.moveTo(s.x, height); ctx.quadraticCurveTo(s.x+w, height-s.h/2, s.x+w/2, height-s.h); ctx.stroke();
+                });
+            } else {
+                ctx.fillStyle = "#000511"; ctx.fillRect(0,0,width,height);
+            }
+            particles.forEach(p => { p.y += p.v; if(p.y>height) p.y=0; ctx.fillStyle='rgba(255,255,255,0.1)'; ctx.beginPath(); ctx.arc(p.x,p.y,p.s,0,Math.PI*2); ctx.fill(); });
+            objects.forEach(o => {
+                if(o.type==='bubble') drawBubble(o);
+                else if(o.type==='alga') drawAlga(o);
+                else if(o.type==='crab') drawCrab(o);
+                else if(o.type==='star') drawStar(o);
+                else if(o.type==='bomb') drawBomb(o);
+                else if(o.type.includes('Shark')) drawShark(o);
+            });
+            if(!gameStarted) { player.x = width/2; player.y = height*0.7 + Math.sin(Date.now()*0.002)*15; }
+            drawPlayer(); update(); requestAnimationFrame(loop);
+        }
+
+        document.getElementById('to-char-select').onclick = () => { document.getElementById('start-screen').style.display='none'; document.getElementById('char-select-screen').style.display='flex'; };
+        document.getElementById('play-btn').onclick = () => { try{ audioCtx = new AudioContext(); }catch(e){} document.getElementById('bgMusic').play(); gameStarted = true; document.getElementById('char-select-screen').style.display='none'; document.getElementById('ui').style.display='flex'; document.getElementById('inventory-bar').style.display='flex'; player.x = width/2; player.y = height*0.8; spawn(); };
+        window.addEventListener('mousemove', e => { if(gameStarted){ player.x = e.clientX; player.y = e.clientY; } });
+        window.addEventListener('touchmove', e => { if(gameStarted){ e.preventDefault(); player.x = e.touches[0].clientX; player.y = e.touches[0].clientY; } },{passive:false});
+        loop();
+        function selectChar(t) { document.querySelectorAll('.char-card').forEach(c=>c.classList.remove('selected')); document.getElementById('char-'+t).classList.add('selected'); }
+    </script>
 </body>
 </html>
