@@ -18,6 +18,9 @@
         #ep-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #00ffcc, #0088ff); transition: width 0.3s; }
         button { padding: 15px 30px; background: #ff00ff; color: white; font-size: 18px; font-weight: bold; border: none; border-radius: 50px; box-shadow: 0 0 15px #ff00ff; cursor: pointer; margin: 10px; transition: 0.2s; }
         input { padding: 12px; border-radius: 10px; border: 2px solid #00d4ff; background: rgba(0,0,0,0.6); color: yellow; font-size: 24px; font-weight: bold; text-align: center; margin: 15px 0; width: 120px; text-transform: uppercase; letter-spacing: 5px; }
+        .char-grid { display: flex; gap: 15px; margin: 20px 0; flex-wrap: wrap; justify-content: center; }
+        .char-card { background: rgba(255,255,255,0.05); border: 2px solid #444; padding: 15px; border-radius: 15px; width: 100px; cursor: pointer; position: relative; }
+        .char-card.selected { border-color: #00d4ff; background: rgba(0, 212, 255, 0.1); }
         #event-alert { position: fixed; top: 100px; width: 100%; text-align: center; color: #00ffcc; font-size: 24px; font-weight: 900; display: none; text-shadow: 0 0 20px #00ffcc; z-index: 400; animation: blink 0.5s infinite; }
         @keyframes blink { 0%, 100% { opacity: 0.2; } 50% { opacity: 1; } }
     </style>
@@ -36,7 +39,7 @@
         <div class="inv-item">🏆 <span id="inv-trophies">0</span></div>
     </div>
 
-    <div id="event-alert">¡EVENTO!</div>
+    <div id="event-alert">¡MENSAJE!</div>
 
     <div id="start-screen" class="overlay">
         <h1 style="color:#ff00ff; font-size:40px; text-shadow: 0 0 20px #ff00ff;">🪼 JELLYFISH</h1>
@@ -45,10 +48,17 @@
         <button id="to-char-select">ACCEDER</button>
     </div>
 
-    <div id="game-over-screen" class="overlay" style="display:none;">
-        <h1 style="color:#ff3300; font-size:35px;">¡FIN DEL VIAJE!</h1>
-        <p>Puntos: <span id="final-score">0</span></p>
-        <button onclick="location.reload()">REINTENTAR</button>
+    <div id="char-select-screen" class="overlay" style="display:none;">
+        <h2>SELECCIONA AVATAR</h2>
+        <div class="char-grid">
+            <div id="char-jellyfish" class="char-card selected" onclick="selectChar('jellyfish')">
+                <div style="font-size:30px">🪼</div><p>Medusa</p>
+            </div>
+            <div id="char-crab" class="char-card" onclick="selectChar('crab')">
+                <div style="font-size:30px">🦀</div><p>Cangrejo</p>
+            </div>
+        </div>
+        <button id="play-btn">¡A NADAR!</button>
     </div>
 
     <audio id="bgMusic" loop><source src="Button_Bop_Logic.mp3" type="audio/mpeg"></audio>
@@ -61,29 +71,11 @@ let width, height;
 const resize = () => { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; };
 window.addEventListener('resize', resize); resize();
 
-let audioCtx, gameStarted = false, gameOver = false, score = 0, hp = 3, maxHp = 3, level = 1, energy = 0, maxEnergy = 6;
-let shieldTime = 0, invulTime = 0, shootingTime = 0, lastShotFired = 0, turtleDefeats = 0;
-let sargassoMode = false, isBossMode = false, sharkBossMode = false, bossX = 0, bossDir = 3;
-
-let player = { x: 0, y: 0, r: 25 }, objects = [], particles = [], backSeaweed = [], vfx = [];
+let audioCtx, gameStarted = false, score = 0, hp = 3, maxHp = 3, level = 1, energy = 0, maxEnergy = 6;
+let invulTime = 0, shootingTime = 0, turtleDefeats = 0, sargassoMode = false, isBossMode = false;
+let bossX = 0, bossDir = 3, player = { x: 0, y: 0, r: 25 }, objects = [], particles = [], backSeaweed = [];
 
 for(let i=0; i<15; i++) backSeaweed.push({ x: Math.random()*window.innerWidth, h: 200+Math.random()*300, sway: Math.random()*Math.PI*2 });
-
-function drawTurtle() {
-    let t = Date.now()*0.002; ctx.save(); ctx.translate(bossX, 100);
-    ctx.fillStyle = "#2d5a27";
-    for(let i=0; i<4; i++) {
-        ctx.save(); ctx.rotate((i<2?-1:1)*0.4 + Math.sin(t+i)*0.2);
-        ctx.translate(i<2?-50:50, i%2===0?-20:20); ctx.scale(1, 0.4);
-        ctx.beginPath(); ctx.arc(0,0,35,0,Math.PI*2); ctx.fill(); ctx.restore();
-    }
-    let g = ctx.createRadialGradient(0,0,10,0,0,75); g.addColorStop(0,"#4a9c43"); g.addColorStop(1,"#1d3d19");
-    ctx.fillStyle = g; ctx.save(); ctx.scale(1, 0.7); ctx.beginPath(); ctx.arc(0,0,75,0,Math.PI*2); ctx.fill(); ctx.restore();
-    ctx.strokeStyle = "rgba(0,0,0,0.3)"; ctx.lineWidth = 2;
-    for(let j=-2; j<=2; j++) { for(let k=-1; k<=1; k++) { ctx.beginPath(); ctx.arc(j*25, k*25, 12, 0, Math.PI*2); ctx.stroke(); } }
-    ctx.fillStyle = "#66cc5c"; ctx.save(); ctx.translate(0, -65); ctx.beginPath(); ctx.arc(0,0,25,0,Math.PI*2); ctx.fill(); ctx.restore();
-    ctx.fillStyle = "red"; ctx.beginPath(); ctx.arc(-8,-75,4,0,Math.PI*2); ctx.arc(8,-75,4,0,Math.PI*2); ctx.fill(); ctx.restore();
-}
 
 function drawPlayer() {
     ctx.save(); let time = Date.now()*0.005;
@@ -95,50 +87,47 @@ function drawPlayer() {
         for(let j=0; j<4; j++) ctx.quadraticCurveTo(player.x-16+i*8+Math.sin(time+i*0.8+j*0.5)*10, player.y+20+j*10, player.x-16+i*8, player.y+35+j*10);
         ctx.stroke();
     }
-    ctx.fillStyle='#e699ff'; ctx.beginPath(); ctx.arc(player.x, player.y, player.r, Math.PI, 0); // Cabeza completa
-    ctx.lineTo(player.x+player.r, player.y+15); ctx.quadraticCurveTo(player.x, player.y+25, player.x-player.r, player.y+15); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#e699ff'; ctx.beginPath(); ctx.arc(player.x, player.y, player.r, Math.PI, 0); 
+    ctx.lineTo(player.x+player.r, player.y+18); ctx.quadraticCurveTo(player.x, player.y+28, player.x-player.r, player.y+18); ctx.closePath(); ctx.fill();
     ctx.fillStyle="white"; ctx.beginPath(); ctx.arc(player.x-8, player.y-5, 5, 0, Math.PI*2); ctx.arc(player.x+8, player.y-5, 5, 0, Math.PI*2); ctx.fill();
     ctx.fillStyle="black"; ctx.beginPath(); ctx.arc(player.x-8, player.y-5, 2, 0, Math.PI*2); ctx.arc(player.x+8, player.y-5, 2, 0, Math.PI*2); ctx.fill();
     ctx.restore();
 }
 
+function drawBubble(o) {
+    ctx.save(); 
+    let g = ctx.createRadialGradient(o.x-o.size/3, o.y-o.size/3, o.size/10, o.x, o.y, o.size);
+    g.addColorStop(0, "rgba(255,255,255,0.6)"); g.addColorStop(1, "rgba(100,200,255,0.3)");
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.stroke(); ctx.restore();
+}
+
 function spawn() {
-    if(gameOver || !gameStarted || isBossMode || sharkBossMode) return;
-    let r = Math.random(), type;
-    if(sargassoMode) {
-        type = r > 0.90 ? 'explosiveShark' : (r > 0.65 ? 'smallShark' : 'alga');
+    if(!gameStarted || isBossMode) return;
+    let r = Math.random(), type = sargassoMode ? (r > 0.8 ? 'smallShark' : 'alga') : (r > 0.8 ? 'alga' : 'bubble');
+    if(type === 'smallShark') {
+        objects.push({ x: -50, y: 150+Math.random()*(height-300), vx: 4, vy: 0, size: 30, type, dead: false });
     } else {
-        type = r > 0.95 ? 'bomb' : (r > 0.85 ? 'shield' : (r > 0.75 ? 'alga' : 'bubble'));
+        objects.push({ x: Math.random()*width, y: -50, vx: (Math.random()-0.5)*2, vy: 2.5, size: 22, type, dead: false });
     }
-    if(type.includes('Shark')) {
-        let side = Math.random() > 0.5;
-        objects.push({ x: side?-80:width+80, y: 150+Math.random()*(height-300), vx: side?4:-4, vy: 0, size: 30, type, t: 120, dead: false });
-    } else {
-        objects.push({ x: Math.random()*width, y: -50, vx: (Math.random()-0.5)*2, vy: 2.5+level*0.4, size: 22, type, t: 120, dead: false });
-    }
-    setTimeout(spawn, Math.max(300, 1100-(level*70)));
+    setTimeout(spawn, 1000);
 }
 
 function update() {
-    if(!gameStarted || gameOver) return;
-    level = Math.floor(score/40)+1;
+    if(!gameStarted) return;
     if(!sargassoMode && score >= 50 && !isBossMode) {
-        isBossMode = true; bossX = width/2; objects = [];
+        isBossMode = true; objects = []; bossX = width/2;
         document.getElementById('event-alert').innerText = "🐢 JEFE TORTUGA"; document.getElementById('event-alert').style.display = "block";
-        setTimeout(() => { isBossMode = false; turtleDefeats++; if(turtleDefeats >= 2) sargassoMode = true; document.getElementById('event-alert').style.display = "none"; spawn(); }, 7000);
+        setTimeout(() => { isBossMode = false; turtleDefeats++; if(turtleDefeats >= 2) sargassoMode = true; document.getElementById('event-alert').style.display = "none"; spawn(); }, 5000);
     }
-    if(isBossMode) { bossX += bossDir; if(bossX > width-100 || bossX < 100) bossDir *= -1; }
-    invulTime = Math.max(0, invulTime - 16);
     objects.forEach(o => {
         o.x += o.vx; o.y += o.vy;
-        let d = Math.hypot(player.x-o.x, player.y-o.y);
-        if(d < player.r + o.size - 5) {
-            if(['bubble','bullet','smallShark','explosiveShark','bomb'].includes(o.type)) {
-                if(invulTime <= 0) { hp--; invulTime = 1500; if(hp<=0) gameOver=true; }
-            } else if(o.type === 'alga') { energy = Math.min(maxEnergy, energy+1); }
+        if(Math.hypot(player.x-o.x, player.y-o.y) < player.r + o.size) {
+            if(o.type === 'bubble' || o.type === 'smallShark') { hp--; invulTime = 1500; }
+            else if(o.type === 'alga') { energy = Math.min(maxEnergy, energy+1); }
             o.dead = true;
         }
-        if(o.y > height + 100 && o.type === 'bubble') { score++; o.dead = true; }
+        if(o.y > height + 50 && o.type === 'bubble') { score++; o.dead = true; }
     });
     objects = objects.filter(o => !o.dead);
 }
@@ -151,27 +140,17 @@ function loop() {
             ctx.moveTo(s.x, height); ctx.quadraticCurveTo(s.x+w, height-s.h/2, s.x+w/2, height-s.h); ctx.stroke();
         });
     }
-    if(isBossMode) drawTurtle();
-    objects.forEach(o => {
-        if(o.type === 'bubble') { ctx.fillStyle="rgba(180,220,255,0.4)"; ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, Math.PI*2); ctx.fill(); }
-        else if(o.type === 'alga') { ctx.fillStyle="#4caf50"; ctx.beginPath(); ctx.ellipse(o.x, o.y, 8, 20, 0, 0, Math.PI*2); ctx.fill(); }
-        else if(o.type.includes('Shark')) { ctx.fillStyle="gray"; ctx.beginPath(); ctx.ellipse(o.x, o.y, o.size, o.size/2, 0, 0, Math.PI*2); ctx.fill(); }
-    });
+    objects.forEach(o => { if(o.type === 'bubble') drawBubble(o); else if(o.type === 'alga') { ctx.fillStyle="#4caf50"; ctx.beginPath(); ctx.ellipse(o.x, o.y, 8, 20, 0, 0, Math.PI*2); ctx.fill(); } });
     if(!gameStarted) { player.x = width/2; player.y = height*0.7; }
     drawPlayer(); update(); requestAnimationFrame(loop);
 }
 
-document.getElementById('to-char-select').onclick = () => { 
-    try { audioCtx = new AudioContext(); } catch(e){}
-    document.getElementById('bgMusic').play();
-    gameStarted = true;
-    document.getElementById('start-screen').style.display = 'none';
-    document.getElementById('ui').style.display = 'flex';
-    document.getElementById('inventory-bar').style.display = 'flex';
-    player.x = width/2; player.y = height*0.8; spawn();
-};
+document.getElementById('to-char-select').onclick = () => { document.getElementById('start-screen').style.display = 'none'; document.getElementById('char-select-screen').style.display = 'flex'; };
+document.getElementById('play-btn').onclick = () => { try { audioCtx = new AudioContext(); } catch(e){} document.getElementById('bgMusic').play(); gameStarted = true; document.getElementById('char-select-screen').style.display = 'none'; document.getElementById('ui').style.display = 'flex'; document.getElementById('inventory-bar').style.display = 'flex'; player.x = width/2; player.y = height*0.8; spawn(); };
 window.addEventListener('mousemove', e => { if(gameStarted) { player.x = e.clientX; player.y = e.clientY; } });
+window.addEventListener('touchmove', e => { if(gameStarted) { e.preventDefault(); player.x = e.touches[0].clientX; player.y = e.touches[0].clientY; } }, {passive: false});
 loop();
+function selectChar(t) { document.querySelectorAll('.char-card').forEach(c => c.classList.remove('selected')); document.getElementById('char-'+t).classList.add('selected'); }
 </script>
 </body>
 </html>
