@@ -61,96 +61,328 @@
         <button id="play-btn">¡A NADAR!</button>
     </div>
 
-    <audio id="bgMusic" loop><source src="Button_Bop_Logic.mp3" type="audio/mpeg"></audio>
+    <audio id="bgMusic" loop>
+        <source src="Button_Bop_Logic.mp3" type="audio/mpeg">
+    </audio>
+
     <canvas id="gameCanvas"></canvas>
 
 <script>
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
+
 let width, height;
-const resize = () => { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; };
-window.addEventListener('resize', resize); resize();
 
-let audioCtx, gameStarted = false, score = 0, hp = 3, maxHp = 3, level = 1, energy = 0, maxEnergy = 6;
-let invulTime = 0, shootingTime = 0, turtleDefeats = 0, sargassoMode = false, isBossMode = false;
-let bossX = 0, bossDir = 3, player = { x: 0, y: 0, r: 25 }, objects = [], particles = [], backSeaweed = [];
+const resize = () => {
+    width = canvas.width = window.innerWidth;
+    height = canvas.height = window.innerHeight;
+};
 
-for(let i=0; i<15; i++) backSeaweed.push({ x: Math.random()*window.innerWidth, h: 200+Math.random()*300, sway: Math.random()*Math.PI*2 });
+window.addEventListener('resize', resize);
+resize();
+
+let audioCtx;
+let gameStarted = false;
+let score = 0;
+let hp = 3;
+let maxHp = 3;
+let level = 1;
+let energy = 0;
+let maxEnergy = 6;
+
+let invulTime = 0;
+let shootingTime = 0;
+let turtleDefeats = 0;
+let sargassoMode = false;
+let isBossMode = false;
+
+let bossX = 0;
+let bossDir = 3;
+
+let player = {
+    x: 0,
+    y: 0,
+    r: 25
+};
+
+let objects = [];
+let particles = [];
+let backSeaweed = [];
+
+for (let i = 0; i < 15; i++) {
+    backSeaweed.push({
+        x: Math.random() * window.innerWidth,
+        h: 200 + Math.random() * 300,
+        sway: Math.random() * Math.PI * 2
+    });
+}
 
 function drawPlayer() {
-    ctx.save(); let time = Date.now()*0.005;
-    if(invulTime > 0 && Math.floor(Date.now()/100)%2 === 0) ctx.globalAlpha = 0.3;
-    ctx.shadowBlur = 15; ctx.shadowColor = "#ff00ff";
-    ctx.strokeStyle='rgba(230,180,255,0.8)'; ctx.lineWidth=3.5;
-    for(let i=0; i<5; i++) {
-        ctx.beginPath(); ctx.moveTo(player.x-16+i*8, player.y+12);
-        for(let j=0; j<4; j++) ctx.quadraticCurveTo(player.x-16+i*8+Math.sin(time+i*0.8+j*0.5)*10, player.y+20+j*10, player.x-16+i*8, player.y+35+j*10);
+    ctx.save();
+
+    let time = Date.now() * 0.005;
+
+    if (invulTime > 0 && Math.floor(Date.now() / 100) % 2 === 0) {
+        ctx.globalAlpha = 0.3;
+    }
+
+    ctx.shadowBlur = 15;
+    ctx.shadowColor = "#ff00ff";
+    ctx.strokeStyle = "rgba(230,180,255,0.8)";
+    ctx.lineWidth = 3.5;
+
+    for (let i = 0; i < 5; i++) {
+        ctx.beginPath();
+        ctx.moveTo(player.x - 16 + i * 8, player.y + 12);
+
+        for (let j = 0; j < 4; j++) {
+            ctx.quadraticCurveTo(
+                player.x - 16 + i * 8 + Math.sin(time + i * 0.8 + j * 0.5) * 10,
+                player.y + 20 + j * 10,
+                player.x - 16 + i * 8,
+                player.y + 35 + j * 10
+            );
+        }
+
         ctx.stroke();
     }
-    ctx.fillStyle='#e699ff'; ctx.beginPath(); ctx.arc(player.x, player.y, player.r, Math.PI, 0); 
-    ctx.lineTo(player.x+player.r, player.y+18); ctx.quadraticCurveTo(player.x, player.y+28, player.x-player.r, player.y+18); ctx.closePath(); ctx.fill();
-    ctx.fillStyle="white"; ctx.beginPath(); ctx.arc(player.x-8, player.y-5, 5, 0, Math.PI*2); ctx.arc(player.x+8, player.y-5, 5, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle="black"; ctx.beginPath(); ctx.arc(player.x-8, player.y-5, 2, 0, Math.PI*2); ctx.arc(player.x+8, player.y-5, 2, 0, Math.PI*2); ctx.fill();
+
+    ctx.fillStyle = "#e699ff";
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, player.r, Math.PI, 0);
+    ctx.lineTo(player.x + player.r, player.y + 18);
+    ctx.quadraticCurveTo(player.x, player.y + 28, player.x - player.r, player.y + 18);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = "white";
+    ctx.beginPath();
+    ctx.arc(player.x - 8, player.y - 5, 5, 0, Math.PI * 2);
+    ctx.arc(player.x + 8, player.y - 5, 5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "black";
+    ctx.beginPath();
+    ctx.arc(player.x - 8, player.y - 5, 2, 0, Math.PI * 2);
+    ctx.arc(player.x + 8, player.y - 5, 2, 0, Math.PI * 2);
+    ctx.fill();
+
     ctx.restore();
 }
 
 function drawBubble(o) {
-    ctx.save(); 
-    let g = ctx.createRadialGradient(o.x-o.size/3, o.y-o.size/3, o.size/10, o.x, o.y, o.size);
-    g.addColorStop(0, "rgba(255,255,255,0.6)"); g.addColorStop(1, "rgba(100,200,255,0.3)");
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, Math.PI*2); ctx.fill();
-    ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.stroke(); ctx.restore();
+    ctx.save();
+
+    let g = ctx.createRadialGradient(
+        o.x - o.size / 3,
+        o.y - o.size / 3,
+        o.size / 10,
+        o.x,
+        o.y,
+        o.size
+    );
+
+    g.addColorStop(0, "rgba(255,255,255,0.6)");
+    g.addColorStop(1, "rgba(100,200,255,0.3)");
+
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(o.x, o.y, o.size, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = "rgba(255,255,255,0.5)";
+    ctx.stroke();
+
+    ctx.restore();
 }
 
 function spawn() {
-    if(!gameStarted || isBossMode) return;
-    let r = Math.random(), type = sargassoMode ? (r > 0.8 ? 'smallShark' : 'alga') : (r > 0.8 ? 'alga' : 'bubble');
-    if(type === 'smallShark') {
-        objects.push({ x: -50, y: 150+Math.random()*(height-300), vx: 4, vy: 0, size: 30, type, dead: false });
-    } else {
-        objects.push({ x: Math.random()*width, y: -50, vx: (Math.random()-0.5)*2, vy: 2.5, size: 22, type, dead: false });
+    if (!gameStarted || isBossMode) {
+        return;
     }
+
+    let r = Math.random();
+
+    let type = sargassoMode
+        ? (r > 0.8 ? "smallShark" : "alga")
+        : (r > 0.8 ? "alga" : "bubble");
+
+    if (type === "smallShark") {
+        objects.push({
+            x: -50,
+            y: 150 + Math.random() * (height - 300),
+            vx: 4,
+            vy: 0,
+            size: 30,
+            type,
+            dead: false
+        });
+    } else {
+        objects.push({
+            x: Math.random() * width,
+            y: -50,
+            vx: (Math.random() - 0.5) * 2,
+            vy: 2.5,
+            size: 22,
+            type,
+            dead: false
+        });
+    }
+
     setTimeout(spawn, 1000);
 }
 
 function update() {
-    if(!gameStarted) return;
-    if(!sargassoMode && score >= 50 && !isBossMode) {
-        isBossMode = true; objects = []; bossX = width/2;
-        document.getElementById('event-alert').innerText = "🐢 JEFE TORTUGA"; document.getElementById('event-alert').style.display = "block";
-        setTimeout(() => { isBossMode = false; turtleDefeats++; if(turtleDefeats >= 2) sargassoMode = true; document.getElementById('event-alert').style.display = "none"; spawn(); }, 5000);
+    if (!gameStarted) {
+        return;
     }
+
+    invulTime = Math.max(0, invulTime - 16);
+
+    if (!sargassoMode && score >= 50 && !isBossMode) {
+        isBossMode = true;
+        objects = [];
+        bossX = width / 2;
+
+        document.getElementById("event-alert").innerText = "🐢 JEFE TORTUGA";
+        document.getElementById("event-alert").style.display = "block";
+
+        setTimeout(() => {
+            isBossMode = false;
+            turtleDefeats++;
+
+            if (turtleDefeats >= 2) {
+                sargassoMode = true;
+            }
+
+            document.getElementById("event-alert").style.display = "none";
+            spawn();
+        }, 5000);
+    }
+
     objects.forEach(o => {
-        o.x += o.vx; o.y += o.vy;
-        if(Math.hypot(player.x-o.x, player.y-o.y) < player.r + o.size) {
-            if(o.type === 'bubble' || o.type === 'smallShark') { hp--; invulTime = 1500; }
-            else if(o.type === 'alga') { energy = Math.min(maxEnergy, energy+1); }
+        o.x += o.vx;
+        o.y += o.vy;
+
+        if (Math.hypot(player.x - o.x, player.y - o.y) < player.r + o.size) {
+            if (o.type === "bubble" || o.type === "smallShark") {
+                if (invulTime <= 0) {
+                    hp = Math.max(0, hp - 1);
+                    invulTime = 1500;
+                }
+            } else if (o.type === "alga") {
+                energy = Math.min(maxEnergy, energy + 1);
+            }
+
             o.dead = true;
         }
-        if(o.y > height + 50 && o.type === 'bubble') { score++; o.dead = true; }
+
+        if (o.y > height + 50 && o.type === "bubble") {
+            score++;
+            o.dead = true;
+        }
     });
+
     objects = objects.filter(o => !o.dead);
+
+    document.getElementById("hp-fill").style.width =
+        (hp / maxHp * 100) + "%";
+
+    document.getElementById("ep-fill").style.width =
+        (energy / maxEnergy * 100) + "%";
 }
 
 function loop() {
-    ctx.fillStyle = sargassoMode ? "#02191c" : "#000511"; ctx.fillRect(0,0,width,height);
-    if(sargassoMode) {
-        backgroundSeaweed.forEach(s => {
-            let w = Math.sin(Date.now()*0.002 + s.sway)*25; ctx.strokeStyle = "#2e7d32"; ctx.lineWidth = 10; ctx.beginPath();
-            ctx.moveTo(s.x, height); ctx.quadraticCurveTo(s.x+w, height-s.h/2, s.x+w/2, height-s.h); ctx.stroke();
+    ctx.fillStyle = sargassoMode ? "#02191c" : "#000511";
+    ctx.fillRect(0, 0, width, height);
+
+    if (sargassoMode) {
+        backSeaweed.forEach(s => {
+            let w = Math.sin(Date.now() * 0.002 + s.sway) * 25;
+
+            ctx.strokeStyle = "#2e7d32";
+            ctx.lineWidth = 10;
+            ctx.beginPath();
+            ctx.moveTo(s.x, height);
+            ctx.quadraticCurveTo(
+                s.x + w,
+                height - s.h / 2,
+                s.x + w / 2,
+                height - s.h
+            );
+            ctx.stroke();
         });
     }
-    objects.forEach(o => { if(o.type === 'bubble') drawBubble(o); else if(o.type === 'alga') { ctx.fillStyle="#4caf50"; ctx.beginPath(); ctx.ellipse(o.x, o.y, 8, 20, 0, 0, Math.PI*2); ctx.fill(); } });
-    if(!gameStarted) { player.x = width/2; player.y = height*0.7; }
-    drawPlayer(); update(); requestAnimationFrame(loop);
+
+    objects.forEach(o => {
+        if (o.type === "bubble") {
+            drawBubble(o);
+        } else if (o.type === "alga") {
+            ctx.fillStyle = "#4caf50";
+            ctx.beginPath();
+            ctx.ellipse(o.x, o.y, 8, 20, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    });
+
+    if (!gameStarted) {
+        player.x = width / 2;
+        player.y = height * 0.7;
+    }
+
+    drawPlayer();
+    update();
+
+    requestAnimationFrame(loop);
 }
 
-document.getElementById('to-char-select').onclick = () => { document.getElementById('start-screen').style.display = 'none'; document.getElementById('char-select-screen').style.display = 'flex'; };
-document.getElementById('play-btn').onclick = () => { try { audioCtx = new AudioContext(); } catch(e){} document.getElementById('bgMusic').play(); gameStarted = true; document.getElementById('char-select-screen').style.display = 'none'; document.getElementById('ui').style.display = 'flex'; document.getElementById('inventory-bar').style.display = 'flex'; player.x = width/2; player.y = height*0.8; spawn(); };
-window.addEventListener('mousemove', e => { if(gameStarted) { player.x = e.clientX; player.y = e.clientY; } });
-window.addEventListener('touchmove', e => { if(gameStarted) { e.preventDefault(); player.x = e.touches[0].clientX; player.y = e.touches[0].clientY; } }, {passive: false});
+document.getElementById("to-char-select").onclick = () => {
+    document.getElementById("start-screen").style.display = "none";
+    document.getElementById("char-select-screen").style.display = "flex";
+};
+
+document.getElementById("play-btn").onclick = () => {
+    try {
+        audioCtx = new AudioContext();
+    } catch (e) {}
+
+    document.getElementById("bgMusic").play();
+
+    gameStarted = true;
+    document.getElementById("char-select-screen").style.display = "none";
+    document.getElementById("ui").style.display = "flex";
+    document.getElementById("inventory-bar").style.display = "flex";
+
+    player.x = width / 2;
+    player.y = height * 0.8;
+
+    spawn();
+};
+
+window.addEventListener("mousemove", e => {
+    if (gameStarted) {
+        player.x = e.clientX;
+        player.y = e.clientY;
+    }
+});
+
+window.addEventListener("touchmove", e => {
+    if (gameStarted) {
+        e.preventDefault();
+        player.x = e.touches[0].clientX;
+        player.y = e.touches[0].clientY;
+    }
+}, { passive: false });
+
 loop();
-function selectChar(t) { document.querySelectorAll('.char-card').forEach(c => c.classList.remove('selected')); document.getElementById('char-'+t).classList.add('selected'); }
+
+function selectChar(t) {
+    document.querySelectorAll(".char-card").forEach(c => {
+        c.classList.remove("selected");
+    });
+
+    document.getElementById("char-" + t).classList.add("selected");
+}
 </script>
 </body>
 </html>
